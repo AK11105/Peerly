@@ -17,6 +17,7 @@ import {
 import { useLumens } from '@/lib/lumens-context'
 import { fetchAllWeaves } from '@/lib/api'
 import { getMyWeaveIds } from '@/lib/my-weaves'
+import { useEffect } from 'react'
 
 const FULL_LEADERBOARD = [
   { rank: 1, username: 'alex_learns', field: 'Computer Science', rep: 2840, lumens: 8500, contributions: 45, scaffolds: 12 },
@@ -237,3 +238,4 @@ export default function LeaderboardPage() {
     </div>
   )
 }
+
