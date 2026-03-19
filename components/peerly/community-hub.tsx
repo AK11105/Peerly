@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
-import { Flame, ArrowUp, MessageSquare, GripVertical } from 'lucide-react'
+import { Flame, ArrowUp, MessageSquare } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SponsoredCard, SPONSORED_ADS } from './sponsored-card'
 
@@ -74,144 +73,101 @@ function Avatar({ initials }: { initials: string }) {
 }
 
 export function CommunityHub() {
-  const [width, setWidth] = useState(300)
-  const isResizing = useRef(false)
-  const startX = useRef(0)
-  const startWidth = useRef(300)
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    isResizing.current = true
-    startX.current = e.clientX
-    startWidth.current = width
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing.current) return
-      const delta = startX.current - e.clientX
-      const newWidth = Math.min(Math.max(startWidth.current + delta, 220), 500)
-      setWidth(newWidth)
-    }
-
-    const handleMouseUp = () => {
-      isResizing.current = false
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }, [width])
-
   return (
-    <aside className="relative shrink-0 flex" style={{ width }}>
-      {/* Resize handle */}
-      <div
-        onMouseDown={handleMouseDown}
-        className="absolute -left-2 top-0 bottom-0 z-10 flex w-4 cursor-col-resize items-center justify-center opacity-0 transition-opacity hover:opacity-100"
-      >
-        <div className="flex h-12 w-4 items-center justify-center rounded bg-secondary/80">
-          <GripVertical className="h-3 w-3 text-muted-foreground" />
-        </div>
+    <div className="w-full">
+      {/* Header */}
+      <div className="mb-5 flex items-center gap-2.5">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+        </span>
+        <span className="text-xs font-bold uppercase tracking-widest text-primary">
+          Live
+        </span>
+        <span className="text-sm font-semibold text-foreground">Community Hub</span>
       </div>
 
-      <div className="flex-1">
-        {/* Header */}
-        <div className="mb-5 flex items-center gap-2.5">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-          </span>
-          <span className="text-xs font-bold uppercase tracking-widest text-primary">
-            Live
-          </span>
-          <span className="text-sm font-semibold text-foreground">Community Hub</span>
-        </div>
+      <Tabs defaultValue="discussions">
+        <TabsList className="mb-4 w-full bg-secondary">
+          <TabsTrigger value="discussions" className="flex-1 text-xs">
+            Discussions
+          </TabsTrigger>
+          <TabsTrigger value="queries" className="flex-1 text-xs">
+            Queries
+          </TabsTrigger>
+        </TabsList>
 
-        <Tabs defaultValue="discussions">
-          <TabsList className="mb-4 w-full bg-secondary">
-            <TabsTrigger value="discussions" className="flex-1 text-xs">
-              Discussions
-            </TabsTrigger>
-            <TabsTrigger value="queries" className="flex-1 text-xs">
-              Queries
-            </TabsTrigger>
-          </TabsList>
+        {/* Sponsored banner */}
+        <SponsoredCard ad={SPONSORED_ADS[1]} variant="banner" className="mb-4" />
 
-          {/* Sponsored banner */}
-          <SponsoredCard ad={SPONSORED_ADS[1]} variant="banner" className="mb-4" />
+        {/* Discussions */}
+        <TabsContent value="discussions" className="mt-0 flex flex-col gap-3">
+          {DISCUSSIONS.map((d) => (
+            <div
+              key={d.id}
+              className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80"
+            >
+              <div className="mb-2 flex items-center gap-2.5">
+                <Avatar initials={d.initials} />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-foreground">@{d.username}</p>
+                  <p className="text-xs text-muted-foreground">{d.timestamp}</p>
+                </div>
+              </div>
+              <p className="mb-3 text-xs leading-relaxed text-muted-foreground line-clamp-3">
+                {d.message}
+              </p>
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span className="text-xs">{d.replies} replies</span>
+              </div>
+            </div>
+          ))}
+        </TabsContent>
 
-          {/* Discussions */}
-          <TabsContent value="discussions" className="mt-0 flex flex-col gap-3">
-            {DISCUSSIONS.map((d) => (
-              <div
-                key={d.id}
-                className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80"
-              >
-                <div className="mb-2 flex items-center gap-2.5">
-                  <Avatar initials={d.initials} />
+        {/* Queries */}
+        <TabsContent value="queries" className="mt-0 flex flex-col gap-3">
+          {QUERIES.map((q) => (
+            <div
+              key={q.id}
+              className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80"
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <Avatar initials={q.initials} />
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-foreground">@{d.username}</p>
-                    <p className="text-xs text-muted-foreground">{d.timestamp}</p>
+                    <p className="text-xs font-semibold text-foreground">@{q.username}</p>
+                    <p className="text-xs text-muted-foreground">{q.timestamp}</p>
                   </div>
                 </div>
-                <p className="mb-3 text-xs leading-relaxed text-muted-foreground line-clamp-3">
-                  {d.message}
-                </p>
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  <span className="text-xs">{d.replies} replies</span>
-                </div>
+                <span
+                  className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium"
+                  style={{ background: 'rgba(34,197,94,0.1)', color: '#22C55E' }}
+                >
+                  {q.rep}
+                </span>
               </div>
-            ))}
-          </TabsContent>
-
-          {/* Queries */}
-          <TabsContent value="queries" className="mt-0 flex flex-col gap-3">
-            {QUERIES.map((q) => (
-              <div
-                key={q.id}
-                className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80"
-              >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar initials={q.initials} />
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-foreground">@{q.username}</p>
-                      <p className="text-xs text-muted-foreground">{q.timestamp}</p>
-                    </div>
-                  </div>
-                  <span
-                    className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium"
-                    style={{ background: 'rgba(34,197,94,0.1)', color: '#22C55E' }}
-                  >
-                    {q.rep}
-                  </span>
-                </div>
-                <p className="mb-3 text-xs leading-relaxed text-foreground">{q.question}</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                    aria-label="Upvote"
-                  >
-                    <ArrowUp className="h-3.5 w-3.5" />
-                    <span>{q.upvotes}</span>
-                  </button>
-                  {q.upvotes > 5 && (
-                    <Flame
-                      className="h-3.5 w-3.5"
-                      style={{ color: '#F97316' }}
-                      aria-label="Trending"
-                    />
-                  )}
-                </div>
+              <p className="mb-3 text-xs leading-relaxed text-foreground">{q.question}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  aria-label="Upvote"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                  <span>{q.upvotes}</span>
+                </button>
+                {q.upvotes > 5 && (
+                  <Flame
+                    className="h-3.5 w-3.5"
+                    style={{ color: '#F97316' }}
+                    aria-label="Trending"
+                  />
+                )}
               </div>
-            ))}
-          </TabsContent>
-        </Tabs>
-      </div>
-    </aside>
+            </div>
+          ))}
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

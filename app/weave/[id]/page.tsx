@@ -77,17 +77,27 @@ export default function WeavePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navbar showWeaveTitle={weave.topic} />
 
-      <div className="flex items-start gap-8 px-6 py-8 lg:px-8">
-        <aside className="shrink-0 pt-1">
+      {/* Full-height content area, no overflow on the row itself */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Left: Add Node FAB — fixed width, no shrink */}
+        <div className="shrink-0 w-14 flex justify-center pt-8 pl-2">
           <AddNodePanel weaveId={weave.id} onRefresh={loadWeave} />
+        </div>
+
+        {/* Center: Weave content — takes all remaining space, scrolls independently */}
+        <main className="flex-1 min-w-0 overflow-y-auto px-4 py-8">
+          <WeaveViewer weave={weave} onUnlock={handleUnlock} />
+        </main>
+
+        {/* Right: Community Hub sidebar — fixed width, scrolls independently */}
+        <aside className="shrink-0 w-72 xl:w-80 border-l border-border overflow-y-auto px-4 py-8">
+          <CommunityHub />
         </aside>
 
-        <WeaveViewer weave={weave} onUnlock={handleUnlock} />
-
-        <CommunityHub />
       </div>
 
       <ContributeModal
