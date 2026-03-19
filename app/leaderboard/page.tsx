@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Crown, Medal } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
 import { Card } from '@/components/ui/card'
@@ -16,8 +16,6 @@ import {
 } from '@/components/ui/table'
 import { useLumens } from '@/lib/lumens-context'
 import { fetchAllWeaves } from '@/lib/api'
-import { getMyWeaveIds } from '@/lib/my-weaves'
-import { useEffect } from 'react'
 
 const FULL_LEADERBOARD = [
   { rank: 1, username: 'alex_learns', field: 'Computer Science', rep: 2840, lumens: 8500, contributions: 45, scaffolds: 12 },
@@ -29,7 +27,7 @@ const FULL_LEADERBOARD = [
   { rank: 7, username: 'language_pro', field: 'Language Learning', rep: 1050, lumens: 3200, contributions: 19, scaffolds: 3 },
   { rank: 8, username: 'econ_analyst', field: 'Economics', rep: 920, lumens: 2800, contributions: 16, scaffolds: 2 },
   { rank: 9, username: 'curious_mind', field: 'Computer Science', rep: 850, lumens: 2500, contributions: 15, scaffolds: 2 },
-  { rank: 142, username: 'demo_user', field: 'Computer Science', rep: 840, lumens: 0, contributions: 0, scaffolds: 0, isMe: true }, // live data applied below
+  { rank: 142, username: 'demo_user', field: 'Computer Science', rep: 840, lumens: 0, contributions: 0, scaffolds: 0, isMe: true },
 ]
 
 const FIELDS = ['Computer Science', 'Mathematics', 'Physics', 'Biology', 'History', 'Design', 'Language Learning', 'Economics']
@@ -42,7 +40,18 @@ const RANK_BADGES: Record<number, { icon: typeof Crown; color: string; bg: strin
   3: { icon: Medal, color: 'text-orange-600', bg: 'bg-orange-600/10' },
 }
 
-function LeaderTable({ rows }: { rows: typeof FULL_LEADERBOARD }) {
+interface LeaderRow {
+  rank: number
+  username: string
+  field: string
+  rep: number
+  lumens: number
+  contributions: number
+  scaffolds: number
+  isMe?: boolean
+}
+
+function LeaderTable({ rows }: { rows: LeaderRow[] }) {
   return (
     <Card className="bg-card border-border overflow-hidden">
       <Table>
@@ -64,7 +73,7 @@ function LeaderTable({ rows }: { rows: typeof FULL_LEADERBOARD }) {
               <TableRow
                 key={user.rank}
                 className={`border-border hover:bg-background/50 ${
-                  (user as any).isMe ? 'border-l-2 border-l-primary bg-primary/5' : ''
+                  user.isMe ? 'border-l-2 border-l-primary bg-primary/5' : ''
                 }`}
               >
                 <TableCell className="font-bold w-12">
@@ -76,7 +85,7 @@ function LeaderTable({ rows }: { rows: typeof FULL_LEADERBOARD }) {
                 </TableCell>
                 <TableCell className="text-foreground font-medium">
                   {user.username}
-                  {(user as any).isMe && (
+                  {user.isMe && (
                     <Badge className="ml-2 bg-primary/20 text-primary text-xs">You</Badge>
                   )}
                 </TableCell>
@@ -101,9 +110,9 @@ export default function LeaderboardPage() {
   const [myScaffolds, setMyScaffolds] = useState(0)
 
   useEffect(() => {
-    // Count real contributions from backend
     fetchAllWeaves().then((weaves) => {
-      let contribs = 0, scaffoldsFilled = 0
+      let contribs = 0
+      let scaffoldsFilled = 0
       for (const w of weaves) {
         for (const n of w.nodes) {
           if (!n.is_scaffold && n.contributed_by === 'demo_user') {
@@ -117,9 +126,8 @@ export default function LeaderboardPage() {
     }).catch(() => {})
   }, [])
 
-  // Inject live balance for demo_user
-  const boardWithLiveUser = FULL_LEADERBOARD.map((u) =>
-    (u as any).isMe ? { ...u, lumens: balance, contributions: myContributions, scaffolds: myScaffolds } : u
+  const boardWithLiveUser: LeaderRow[] = FULL_LEADERBOARD.map((u) =>
+    u.isMe ? { ...u, lumens: balance, contributions: myContributions, scaffolds: myScaffolds } : u
   )
 
   const fieldRows = boardWithLiveUser.filter((u) => u.field === selectedField)
@@ -238,4 +246,3 @@ export default function LeaderboardPage() {
     </div>
   )
 }
-
