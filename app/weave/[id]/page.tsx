@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { MessageSquare, ChevronRight } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
 import { AddNodePanel } from '@/components/peerly/add-node-panel'
 import { WeaveViewer } from '@/components/peerly/weave-viewer'
@@ -9,6 +10,10 @@ import { CommunityHub } from '@/components/peerly/community-hub'
 import { ContributeModal } from '@/components/peerly/contribute-modal'
 import { fetchWeave } from '@/lib/api'
 import type { Weave, WeaveNode } from '@/lib/types'
+
+const MIN_WIDTH = 280
+const MAX_WIDTH = 560
+const DEFAULT_WIDTH = 320
 
 export default function WeavePage() {
   const params = useParams()
@@ -20,6 +25,13 @@ export default function WeavePage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedScaffold, setSelectedScaffold] = useState<WeaveNode | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+
+  // Sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH)
+  const isResizing = useRef(false)
+  const startX = useRef(0)
+  const startWidth = useRef(DEFAULT_WIDTH)
 
   const loadWeave = useCallback(async () => {
     if (!weaveId) return
@@ -34,9 +46,47 @@ export default function WeavePage() {
     }
   }, [weaveId])
 
-  useEffect(() => {
-    loadWeave()
-  }, [loadWeave])
+  useEffect(() => { loadWeave() }, [loadWeave])
+
+  // Keyboard shortcut: Cmd/Ctrl + B toggles the community sidebar 
+useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+      e.preventDefault()
+      setSidebarOpen(o => !o)
+    }
+  }
+  window.addEventListener('keydown', handleKeyDown)
+  return () => window.removeEventListener('keydown', handleKeyDown)
+}, [])
+
+  // Drag-to-resize logic
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizing.current = true
+    startX.current = e.clientX
+    startWidth.current = sidebarWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current) return
+      const delta = startX.current - e.clientX
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta))
+      setSidebarWidth(newWidth)
+    }
+
+    const onMouseUp = () => {
+      isResizing.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [sidebarWidth])
 
   const handleUnlock = (node: WeaveNode) => {
     setSelectedScaffold(node)
@@ -64,10 +114,7 @@ export default function WeavePage() {
         <div className="flex items-center justify-center h-[80vh]">
           <div className="text-center space-y-4">
             <p className="text-destructive font-medium">{error ?? 'Weave not found'}</p>
-            <button
-              onClick={() => router.push('/explore')}
-              className="text-sm text-primary underline underline-offset-2"
-            >
+            <button onClick={() => router.push('/explore')} className="text-sm text-primary underline underline-offset-2">
               Browse all weaves
             </button>
           </div>
@@ -77,25 +124,70 @@ export default function WeavePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       <Navbar showWeaveTitle={weave.topic} />
 
-      {/* Full-height content area, no overflow on the row itself */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0">
 
-        {/* Left: Add Node FAB — fixed width, no shrink */}
-        <div className="shrink-0 w-14 flex justify-center pt-8 pl-2">
+        {/* FAB column */}
+        <div className="shrink-0 w-14 flex justify-center pt-8 pl-2 border-r border-border/30">
           <AddNodePanel weaveId={weave.id} onRefresh={loadWeave} />
         </div>
 
-        {/* Center: Weave content — takes all remaining space, scrolls independently */}
-        <main className="flex-1 min-w-0 overflow-y-auto px-4 py-8">
+        {/* Center: weave content */}
+        <main className="flex-1 min-w-0 overflow-y-auto px-6 py-8 relative">
           <WeaveViewer weave={weave} onUnlock={handleUnlock} />
+
+          {/* Toggle button — floats at the right edge of main, always visible */}
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            title={sidebarOpen ? 'Close community sidebar [ Ctrl/CMD + B ] ' : 'Open community sidebar [ Ctrl/CMD + B ]'}
+            className={`
+              fixed top-1/2 -translate-y-1/2 z-30
+              flex items-center justify-center
+              h-24 w-10 rounded-l-md
+              border border-r-0 border-border/60
+              bg-[#111] hover:bg-secondary
+              text-muted-foreground hover:text-primary
+              transition-all duration-200
+              shadow-lg
+            `}
+            style={{
+              right: sidebarOpen ? sidebarWidth : 0,
+              transition: 'right 0.25s ease, background 0.15s',
+            }}
+          >
+            <ChevronRight
+              className="h-3.5 w-3.5 transition-transform duration-200"
+              style={{ transform: sidebarOpen ? 'rotate(0deg)' : 'rotate(180deg)' }}
+            />
+          </button>
         </main>
 
-        {/* Right: Community Hub sidebar — fixed width, scrolls independently */}
-        <aside className="shrink-0 w-72 xl:w-80 border-l border-border overflow-y-auto px-4 py-8">
-          <CommunityHub />
+        {/* Right: resizable community sidebar */}
+        <aside
+          className="shrink-0 border-l border-border/40 overflow-hidden relative flex"
+          style={{
+            width: sidebarOpen ? sidebarWidth : 0,
+            minWidth: sidebarOpen ? MIN_WIDTH : 0,
+            transition: isResizing.current ? 'none' : 'width 0.25s ease',
+          }}
+        >
+          {/* Drag handle — sits on the left edge of the sidebar */}
+          {sidebarOpen && (
+            <div
+              onMouseDown={handleResizeMouseDown}
+              className="absolute left-0 top-0 bottom-0 z-20 w-1 cursor-col-resize group"
+            >
+              {/* Visual pip that appears on hover */}
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 h-16 w-1 rounded-full bg-border/0 group-hover:bg-primary/60 transition-colors duration-150" />
+            </div>
+          )}
+
+          {/* The actual hub — full width/height of the aside */}
+          <div className="flex-1 overflow-hidden">
+            <CommunityHub />
+          </div>
         </aside>
 
       </div>
