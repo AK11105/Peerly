@@ -1,6 +1,9 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+
+const STORAGE_KEY = 'peerly_lumens_balance'
+const DEFAULT_BALANCE = 0
 
 interface LumensContextType {
   balance: number
@@ -12,16 +15,41 @@ interface LumensContextType {
 
 const LumensContext = createContext<LumensContextType | null>(null)
 
-export function LumensProvider({ children, initialBalance = 1240 }: { children: ReactNode; initialBalance?: number }) {
-  const [balance, setBalance] = useState(initialBalance)
+function getStoredBalance(): number {
+  if (typeof window === 'undefined') return DEFAULT_BALANCE
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored !== null) return parseInt(stored, 10)
+  } catch {}
+  return DEFAULT_BALANCE
+}
+
+export function LumensProvider({ children }: { children: ReactNode }) {
+  const [balance, setBalance] = useState(DEFAULT_BALANCE)
   const [recentChange, setRecentChange] = useState<{ amount: number; type: 'spend' | 'earn' } | null>(null)
 
-  const spend = useCallback((amount: number) => {
-    if (amount > balance) return false
-    setBalance((prev) => prev - amount)
-    setRecentChange({ amount, type: 'spend' })
-    return true
+  // Load from localStorage on mount
+  useEffect(() => {
+    setBalance(getStoredBalance())
+  }, [])
+
+  // Persist to localStorage whenever balance changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, String(balance))
+    }
   }, [balance])
+
+  const spend = useCallback((amount: number) => {
+    let ok = false
+    setBalance((prev) => {
+      if (amount > prev) return prev
+      ok = true
+      return prev - amount
+    })
+    if (ok) setRecentChange({ amount, type: 'spend' })
+    return ok
+  }, [])
 
   const earn = useCallback((amount: number) => {
     setBalance((prev) => prev + amount)

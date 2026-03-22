@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { X, Check, ChevronRight } from 'lucide-react'
+import { useState, useRef, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { X, Check, ChevronRight, ChevronDown } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,32 +11,63 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { generateWeave, fetchAllWeaves } from '@/lib/api'
 import { addMyWeaveId } from '@/lib/my-weaves'
+import { FIELDS } from '@/lib/fields'
 
-const FIELDS = [
-  'Computer Science',
-  'Mathematics',
-  'Physics',
-  'Biology',
-  'Economics',
-  'Language Learning',
-  'History',
-  'Design',
-]
+const FIELD_NAMES = FIELDS.map((f) => f.name)
 
-export default function CreateWeavePage() {
+function CreateWeaveForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const preselectedField = searchParams.get('field') ?? ''
+
   const [step, setStep] = useState(1)
   const [topic, setTopic] = useState('')
-  const [selectedField, setSelectedField] = useState('')
+  const [selectedField, setSelectedField] = useState(preselectedField)
   const [newField, setNewField] = useState('')
   const [admins, setAdmins] = useState<string[]>([])
   const [adminInput, setAdminInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [fieldDropdownOpen, setFieldDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setFieldDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  // If field is preselected from URL, skip step 2 entirely
+  const hasField = !!selectedField
+  const totalSteps = hasField ? 2 : 3
+  const stepLabels = hasField ? ['Topic', 'Admins'] : ['Topic', 'Field', 'Admins']
+
+  const goNext = () => {
+    if (step === 1 && hasField) {
+      setStep(3)
+    } else {
+      setStep((s) => s + 1)
+    }
+  }
+
+  const goBack = () => {
+    if (step === 3 && hasField) {
+      setStep(1)
+    } else {
+      setStep((s) => s - 1)
+    }
+  }
+
+  const visibleStep = hasField && step === 3 ? 2 : step
 
   const handleAddAdmin = () => {
     if (adminInput.trim()) {
-      setAdmins([...admins, adminInput])
+      setAdmins([...admins, adminInput.trim()])
       setAdminInput('')
     }
   }
@@ -46,34 +77,26 @@ export default function CreateWeavePage() {
   }
 
   const handleGenerateWeave = async () => {
-    if (!topic.trim() || !selectedField.trim()) {
-      toast.error('Please fill in all required fields')
+    if (!topic.trim()) {
+      toast.error('Please enter a topic')
       return
     }
 
     setLoading(true)
     setProgress(0)
 
-    // Simulate progress
     const interval = setInterval(() => {
       setProgress((p) => Math.min(p + Math.random() * 30, 95))
     }, 200)
 
     try {
-      const weave = await generateWeave(topic, [] , selectedField || undefined)
-
+      const weave = await generateWeave(topic, [], selectedField || undefined)
       clearInterval(interval)
       setProgress(100)
-
       addMyWeaveId(weave.id)
       toast.success('Weave created!')
-
-      setTimeout(() => {
-        router.push(`/weave/${weave.id}`)
-      }, 500)
+      setTimeout(() => router.push(`/weave/${weave.id}`), 500)
     } catch {
-      // Next.js proxy may have timed out (Ollama is slow on first load)
-      // but the backend may have actually completed — poll for it
       clearInterval(interval)
       setProgress(98)
 
@@ -83,10 +106,9 @@ export default function CreateWeavePage() {
 
       let found = false
       for (let attempt = 0; attempt < 12; attempt++) {
-        await new Promise((r) => setTimeout(r, 10_000)) // wait 10s between polls
+        await new Promise((r) => setTimeout(r, 10_000))
         try {
           const weaves = await fetchAllWeaves()
-          // Find the most recently created weave matching our topic
           const match = weaves.find((w) =>
             w.topic.toLowerCase().trim() === topic.toLowerCase().trim()
           )
@@ -99,9 +121,7 @@ export default function CreateWeavePage() {
             setTimeout(() => router.push(`/weave/${match.id}`), 500)
             break
           }
-        } catch {
-          // backend not reachable yet, keep polling
-        }
+        } catch {}
       }
 
       if (!found) {
@@ -120,34 +140,96 @@ export default function CreateWeavePage() {
         {/* Step Indicator */}
         <div className="mb-12">
           <div className="flex items-center justify-between mb-8">
-            {[1, 2, 3].map((s) => (
-              <div key={s} className="flex items-center flex-1">
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full font-bold transition-all ${
-                    s < step
-                      ? 'bg-primary text-primary-foreground'
-                      : s === step
-                      ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {s < step ? <Check className="h-5 w-5" /> : s}
-                </div>
-                {s < 3 && (
+            {Array.from({ length: totalSteps }).map((_, idx) => {
+              const s = idx + 1
+              const isComplete = visibleStep > s
+              const isActive = visibleStep === s
+              return (
+                <div key={s} className="flex items-center flex-1">
                   <div
-                    className={`flex-1 h-1 mx-2 transition-all ${
-                      s < step ? 'bg-primary' : 'bg-muted'
+                    className={`flex h-10 w-10 items-center justify-center rounded-full font-bold transition-all ${
+                      isComplete
+                        ? 'bg-primary text-primary-foreground'
+                        : isActive
+                        ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background'
+                        : 'bg-muted text-muted-foreground'
                     }`}
-                  />
-                )}
-              </div>
+                  >
+                    {isComplete ? <Check className="h-5 w-5" /> : s}
+                  </div>
+                  {s < totalSteps && (
+                    <div className={`flex-1 h-1 mx-2 transition-all ${isComplete ? 'bg-primary' : 'bg-muted'}`} />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="flex justify-between text-xs text-muted-foreground">
+            {stepLabels.map((label) => (
+              <span key={label}>{label}</span>
             ))}
           </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Topic</span>
-            <span>Field</span>
-            <span>Admins</span>
-          </div>
+
+          {/* Field badge — shown when a field is selected, with X to clear and dropdown to change */}
+          {selectedField && (
+            <div className="mt-5 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Field:</span>
+
+              <div className="relative" ref={dropdownRef}>
+                {/* Badge with change button and clear button */}
+                <div className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 pl-3 pr-1 py-1">
+                  <span className="text-xs font-medium text-primary">{selectedField}</span>
+
+                  {/* Change dropdown trigger */}
+                  <button
+                    onClick={() => setFieldDropdownOpen((o) => !o)}
+                    className="flex items-center justify-center rounded-full p-0.5 text-primary/70 hover:text-primary hover:bg-primary/10 transition-colors ml-1"
+                    title="Change field"
+                  >
+                    <ChevronDown className={`h-3 w-3 transition-transform ${fieldDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Clear / X button */}
+                  <button
+                    onClick={() => {
+                      setSelectedField('')
+                      setFieldDropdownOpen(false)
+                    }}
+                    className="flex items-center justify-center rounded-full p-0.5 text-primary/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title="Remove field"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+
+                {/* Dropdown */}
+                {fieldDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-1 z-50 w-52 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+                    <div className="max-h-56 overflow-y-auto py-1">
+                      {FIELD_NAMES.map((name) => (
+                        <button
+                          key={name}
+                          onClick={() => {
+                            setSelectedField(name)
+                            setFieldDropdownOpen(false)
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between ${
+                            selectedField === name
+                              ? 'bg-primary/10 text-primary'
+                              : 'text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          {name}
+                          {selectedField === name && <Check className="h-3.5 w-3.5" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Step 1: Topic */}
@@ -162,10 +244,10 @@ export default function CreateWeavePage() {
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               className="h-11 mb-6 bg-background border-border"
-              onKeyDown={(e) => e.key === 'Enter' && topic.trim() && setStep(2)}
+              onKeyDown={(e) => e.key === 'Enter' && topic.trim() && goNext()}
             />
             <Button
-              onClick={() => setStep(2)}
+              onClick={goNext}
               disabled={!topic.trim()}
               className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50"
             >
@@ -174,15 +256,15 @@ export default function CreateWeavePage() {
           </Card>
         )}
 
-        {/* Step 2: Field */}
-        {step === 2 && (
+        {/* Step 2: Field — only shown when no field selected */}
+        {step === 2 && !selectedField && (
           <Card className="p-8 bg-card border-border">
             <h2 className="text-2xl font-bold text-foreground mb-6">Choose a Field</h2>
             <div className="grid grid-cols-2 gap-3 mb-6">
-              {FIELDS.map((field) => (
+              {FIELD_NAMES.map((field) => (
                 <button
                   key={field}
-                  onClick={() => setSelectedField(field)}
+                  onClick={() => {setSelectedField(field); setStep(3) }}
                   className={`p-3 rounded-lg border-2 transition-all text-sm font-medium ${
                     selectedField === field
                       ? 'border-primary bg-primary/10 text-primary'
@@ -208,15 +290,11 @@ export default function CreateWeavePage() {
             </div>
 
             <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setStep(1)}
-                className="flex-1 border-border"
-              >
+              <Button variant="outline" onClick={goBack} className="flex-1 border-border">
                 Back
               </Button>
               <Button
-                onClick={() => setStep(3)}
+                onClick={goNext}
                 disabled={!selectedField.trim()}
                 className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50"
               >
@@ -241,22 +319,15 @@ export default function CreateWeavePage() {
                   onKeyDown={(e) => e.key === 'Enter' && handleAddAdmin()}
                   className="h-10 bg-background border-border flex-1"
                 />
-                <Button
-                  onClick={handleAddAdmin}
-                  variant="outline"
-                  className="border-border"
-                >
+                <Button onClick={handleAddAdmin} variant="outline" className="border-border">
                   Add
                 </Button>
               </div>
 
               <div className="flex flex-wrap gap-2 mb-6">
-                {/* Current user - cannot remove */}
                 <Badge className="bg-primary/20 text-primary pl-3 py-1.5 flex items-center gap-2">
                   <span>You (demo_user)</span>
                 </Badge>
-
-                {/* Added admins */}
                 {admins.map((admin, i) => (
                   <Badge
                     key={i}
@@ -276,33 +347,22 @@ export default function CreateWeavePage() {
 
             {loading ? (
               <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {progress < 98
-                      ? 'Ollama is building your Weave…'
-                      : 'Almost there — verifying result…'}
-                  </p>
-                  <div className="h-2 bg-background rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary transition-all duration-300"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  {progress < 98 ? 'Ollama is building your Weave…' : 'Almost there — verifying result…'}
+                </p>
+                <div className="h-2 bg-background rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
               </div>
             ) : (
               <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep(2)}
-                  className="flex-1 border-border"
-                >
+                <Button variant="outline" onClick={goBack} className="flex-1 border-border">
                   Back
                 </Button>
-                <Button
-                  onClick={handleGenerateWeave}
-                  className="flex-1 bg-primary hover:bg-primary/90"
-                >
+                <Button onClick={handleGenerateWeave} className="flex-1 bg-primary hover:bg-primary/90">
                   Generate Weave
                 </Button>
               </div>
@@ -311,5 +371,13 @@ export default function CreateWeavePage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function CreateWeavePage() {
+  return (
+    <Suspense>
+      <CreateWeaveForm />
+    </Suspense>
   )
 }

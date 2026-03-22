@@ -81,8 +81,10 @@ export default function FieldPage() {
               </p>
             )}
           </div>
-          <Link href="/create">
-            <Button className="bg-primary hover:bg-primary/90">+ New Weave</Button>
+          <Link href={`/create?field=${encodeURIComponent(fieldLabel)}`}>            
+               <Button className="bg-primary hover:bg-primary/90">
+                         + New Weave
+               </Button>
           </Link>
         </div>
 
