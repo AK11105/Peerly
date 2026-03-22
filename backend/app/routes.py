@@ -30,16 +30,16 @@ def get_weave(weave_id: str):
 
 
 @router.post("/weaves/generate", response_model=Weave)
+@router.post("/weaves/generate", response_model=Weave)
 def generate_weave(body: GenerateWeaveRequest):
-    """AI-generate a full weave. This is the only blocking AI call — user waits at /create."""
-    nodes = ai.generate_weave(body.topic, body.seed_nodes or [])
-    weave = Weave(
-        id=str(uuid.uuid4()), 
-        topic=body.topic, 
-        field=body.field,
-        nodes=nodes
+    if not body.include_scaffolds:
+        # Empty weave — no AI nodes, admins build from scratch
+        weave = Weave(id=str(uuid.uuid4()), topic=body.topic, field=body.field, nodes=[])
+        store.save_weave(weave)
+        return weave
 
-        )
+    nodes = ai.generate_weave(body.topic, body.seed_nodes or [], body.include_scaffolds)
+    weave = Weave(id=str(uuid.uuid4()), topic=body.topic, field=body.field, nodes=nodes)
     store.save_weave(weave)
     return weave
 

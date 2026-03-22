@@ -46,7 +46,7 @@ def _parse_json(raw: str) -> dict | list:
     raise ValueError(f"Could not extract valid JSON:\n{raw[:300]}")
 
 
-def generate_weave(topic: str, seed_nodes: list[str] = []) -> list[Node]:
+def generate_weave(topic: str, seed_nodes: list[str] = [], include_scaffolds: bool = True) -> list[Node]:
     seed_hint = f"\nInclude these concepts: {', '.join(seed_nodes)}." if seed_nodes else ""
 
     prompt = f"""You are a curriculum designer. Build a learning map for: "{topic}".{seed_hint}
@@ -67,7 +67,7 @@ Output ONLY a JSON array:
             description=item["description"],
             depth=int(item["depth"]),
             difficulty=int(item["difficulty"]),
-            is_scaffold=True,
+            is_scaffold=include_scaffolds,
             contributed_by=None,
         )
         for item in parsed

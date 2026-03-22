@@ -30,6 +30,7 @@ function CreateWeaveForm() {
   const [progress, setProgress] = useState(0)
   const [fieldDropdownOpen, setFieldDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [includeScaffolds, setIncludeScaffolds] = useState(true)
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -90,7 +91,7 @@ function CreateWeaveForm() {
     }, 200)
 
     try {
-      const weave = await generateWeave(topic, [], selectedField || undefined)
+      const weave = await generateWeave(topic, [], selectedField || undefined, includeScaffolds)
       clearInterval(interval)
       setProgress(100)
       addMyWeaveId(weave.id)
@@ -246,6 +247,29 @@ function CreateWeaveForm() {
               className="h-11 mb-6 bg-background border-border"
               onKeyDown={(e) => e.key === 'Enter' && topic.trim() && goNext()}
             />
+
+            {/* Scaffold toggle */}
+<div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3 mb-6">
+  <div>
+    <p className="text-sm font-medium text-foreground">Include AI Scaffolds</p>
+    <p className="text-xs text-muted-foreground mt-0.5">
+      AI drafts placeholder nodes for concepts not yet contributed
+    </p>
+  </div>
+  <button
+    onClick={() => setIncludeScaffolds((v) => !v)}
+    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+      includeScaffolds ? 'bg-primary' : 'bg-muted'
+    }`}
+  >
+    <span
+      className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+        includeScaffolds ? 'translate-x-5' : 'translate-x-0'
+      }`}
+    />
+  </button>
+</div>
+
             <Button
               onClick={goNext}
               disabled={!topic.trim()}

@@ -24,6 +24,7 @@ class GenerateWeaveRequest(BaseModel):
     topic: str
     field : Optional[str] = None
     seed_nodes: Optional[list[str]] = []
+    include_scaffolds: bool = True 
 
 
 class ContributeNodeRequest(BaseModel):
