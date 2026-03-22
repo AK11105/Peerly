@@ -186,7 +186,7 @@ useEffect(() => {
 
           {/* The actual hub — full width/height of the aside */}
           <div className="flex-1 overflow-hidden">
-            <CommunityHub />
+            <CommunityHub weaveId={weave.id} weaveName={weave.topic} />
           </div>
         </aside>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   Flame, ArrowUp, MessageSquare, Hash,
   ChevronRight, ChevronDown, Users, Zap, Plus, Search, Send, X, CornerDownRight, Trash2, Paperclip
@@ -24,6 +24,7 @@ interface Reply {
   initials: string
   username: string
   timestamp: string
+  createdAt: number      // ms since epoch — for reliable sort
   text: string
   upvotes: number
   isOwn?: boolean
@@ -36,6 +37,7 @@ interface Message {
   initials: string
   username: string
   timestamp: string
+  createdAt: number      // ms since epoch — for reliable sort
   unread: boolean
   text: string
   replies: Reply[]
@@ -97,135 +99,119 @@ function renderWithMentions(text: string) {
 
 // ── Seed data ──────────────────────────────────────────────────────────────
 
-const SEED_CHANNELS: Channel[] = [
-  {
-    id: 'general',
-    name: 'general',
-    category: 'DISCUSSIONS',
-    isQuery: false,
-    messages: [
-      {
-        id: 'gen-1', initials: 'AK', username: 'alice_dev',
-        timestamp: '2m ago', unread: true,
-        text: 'Really helpful breakdown on gradient descent — the visualisation analogy clicked for me.',
-        replies: [
-          { id: 'gen-1-r1', initials: 'BL', username: 'bob_learn', timestamp: '1m ago', text: 'Agreed! The ball rolling down a slope metaphor is great.', upvotes: 2 },
-        ],
-        upvotes: 3,
-      },
-      {
-        id: 'gen-2', initials: 'BL', username: 'bob_learn',
-        timestamp: '14m ago', unread: false,
-        text: 'Anyone else notice the weave for "Calculus" is missing a node on partial derivatives?',
-        replies: [],
-        upvotes: 1,
-      },
-    ],
-  },
-  {
-    id: 'suggestions',
-    name: 'suggestions',
-    category: 'DISCUSSIONS',
-    isQuery: false,
-    messages: [
-      {
-        id: 'sug-1', initials: 'BL', username: 'bob_learn',
-        timestamp: '14m ago', unread: true,
-        text: 'Should we add a node on Learning Rate Schedulers? Feels like a gap between GD and backprop.',
-        replies: [
-          { id: 'sug-1-r1', initials: 'CJ', username: 'carol_ai', timestamp: '10m ago', text: 'Seconded. Cosine annealing and step decay are both worth covering.', upvotes: 3 },
-          { id: 'sug-1-r2', initials: 'AK', username: 'alice_dev', timestamp: '8m ago', text: 'I can scaffold that node if an admin approves it.', upvotes: 1 },
-        ],
-        upvotes: 5,
-      },
-      {
-        id: 'sug-2', initials: 'CJ', username: 'carol_ai',
-        timestamp: '45m ago', unread: false,
-        text: 'Dark mode toggle for node detail pages would be nice.',
-        replies: [],
-        upvotes: 2,
-      },
-    ],
-  },
-  {
-    id: 'deep-dives',
-    name: 'deep-dives',
-    category: 'DISCUSSIONS',
-    isQuery: false,
-    messages: [
-      {
-        id: 'dd-1', initials: 'CJ', username: 'carol_ai',
-        timestamp: '1h ago', unread: true,
-        text: 'The CNNs node needs more depth on pooling layers. Anyone want to co-author an update?',
-        replies: [
-          { id: 'dd-1-r1', initials: 'MR', username: 'marcus_r', timestamp: '55m ago', text: 'I wrote my thesis on this — happy to contribute. DM me.', upvotes: 4 },
-          { id: 'dd-1-r2', initials: 'SP', username: 'sara_p', timestamp: '50m ago', text: 'Global average pooling vs max pooling would be a great comparison.', upvotes: 2 },
-        ],
-        upvotes: 7,
-      },
-    ],
-  },
-  {
-    id: 'help',
-    name: 'help',
-    category: 'QUERIES',
-    isQuery: true,
-    messages: [
-      {
-        id: 'help-1', initials: 'MR', username: 'marcus_r',
-        timestamp: '5m ago', unread: true, isQuestion: true,
-        text: 'Is attention the same as self-attention? What is the difference?',
-        replies: [
-          { id: 'help-1-r1', initials: 'AK', username: 'alice_dev', timestamp: '3m ago', text: 'Self-attention is a special case where Q, K, V all come from the same sequence. Attention is more general — Q can come from a different sequence (cross-attention).', upvotes: 6 },
-        ],
-        upvotes: 12, rep: '420',
-      },
-      {
-        id: 'help-2', initials: 'TW', username: 'theo_w',
-        timestamp: '2h ago', unread: false, isQuestion: true,
-        text: 'How do I contribute to a scaffold node that already has a description?',
-        replies: [],
-        upvotes: 4, rep: '120',
-      },
-    ],
-  },
-  {
-    id: 'theory',
-    name: 'theory',
-    category: 'QUERIES',
-    isQuery: true,
-    messages: [
-      {
-        id: 'theory-1', initials: 'SP', username: 'sara_p',
-        timestamp: '22m ago', unread: false, isQuestion: true,
-        text: 'Why does backprop struggle with vanishing gradients in deep nets?',
-        replies: [
-          { id: 'theory-1-r1', initials: 'CJ', username: 'carol_ai', timestamp: '18m ago', text: 'Sigmoid saturates near 0/1, its derivative ≈ 0 there. Multiply many of those across layers and the gradient vanishes.', upvotes: 5 },
-          { id: 'theory-1-r2', initials: 'BL', username: 'bob_learn', timestamp: '15m ago', text: 'ReLU was a big fix for this — derivative is exactly 1 for positive inputs, no saturation.', upvotes: 3 },
-        ],
-        upvotes: 8, rep: '310',
-      },
-    ],
-  },
-  {
-    id: 'resources',
-    name: 'resources',
-    category: 'QUERIES',
-    isQuery: true,
-    messages: [
-      {
-        id: 'res-1', initials: 'TW', username: 'theo_w',
-        timestamp: '3h ago', unread: false, isQuestion: true,
-        text: 'What are good resources for understanding the maths behind CNNs?',
-        replies: [
-          { id: 'res-1-r1', initials: 'MR', username: 'marcus_r', timestamp: '2h ago', text: 'cs231n lecture notes (Stanford) are the gold standard. Chapter 9 of Deep Learning by Goodfellow is also excellent.', upvotes: 7 },
-          { id: 'res-1-r2', initials: 'SP', username: 'sara_p', timestamp: '90m ago', text: '3Blue1Brown has a great visual series on convolutions.', upvotes: 4 },
-        ],
-        upvotes: 3, rep: '195',
-      },
-    ],
-  },
-]
+// Seed factory — called fresh per weave so each gets its own copy
+function makeSeedChannels(): Channel[] {
+  const now = Date.now()
+  const t = (minsAgo: number) => now - minsAgo * 60_000
+  return [
+    {
+      id: 'general', name: 'general', category: 'DISCUSSIONS', isQuery: false,
+      messages: [
+        {
+          id: 'gen-1', initials: 'AK', username: 'alice_dev',
+          timestamp: '2m ago', createdAt: t(2), unread: true,
+          text: 'Really helpful breakdown on gradient descent — the visualisation analogy clicked for me.',
+          replies: [
+            { id: 'gen-1-r1', initials: 'BL', username: 'bob_learn', timestamp: '1m ago', createdAt: t(1), text: 'Agreed! The ball rolling down a slope metaphor is great.', upvotes: 2 },
+          ],
+          upvotes: 3,
+        },
+        {
+          id: 'gen-2', initials: 'BL', username: 'bob_learn',
+          timestamp: '14m ago', createdAt: t(14), unread: false,
+          text: 'Anyone else notice the weave for "Calculus" is missing a node on partial derivatives?',
+          replies: [], upvotes: 1,
+        },
+      ],
+    },
+    {
+      id: 'suggestions', name: 'suggestions', category: 'DISCUSSIONS', isQuery: false,
+      messages: [
+        {
+          id: 'sug-1', initials: 'BL', username: 'bob_learn',
+          timestamp: '14m ago', createdAt: t(14), unread: true,
+          text: 'Should we add a node on Learning Rate Schedulers? Feels like a gap between GD and backprop.',
+          replies: [
+            { id: 'sug-1-r1', initials: 'CJ', username: 'carol_ai', timestamp: '10m ago', createdAt: t(10), text: 'Seconded. Cosine annealing and step decay are both worth covering.', upvotes: 3 },
+            { id: 'sug-1-r2', initials: 'AK', username: 'alice_dev', timestamp: '8m ago', createdAt: t(8), text: 'I can scaffold that node if an admin approves it.', upvotes: 1 },
+          ],
+          upvotes: 5,
+        },
+        {
+          id: 'sug-2', initials: 'CJ', username: 'carol_ai',
+          timestamp: '45m ago', createdAt: t(45), unread: false,
+          text: 'Dark mode toggle for node detail pages would be nice.',
+          replies: [], upvotes: 2,
+        },
+      ],
+    },
+    {
+      id: 'deep-dives', name: 'deep-dives', category: 'DISCUSSIONS', isQuery: false,
+      messages: [
+        {
+          id: 'dd-1', initials: 'CJ', username: 'carol_ai',
+          timestamp: '1h ago', createdAt: t(60), unread: true,
+          text: 'The CNNs node needs more depth on pooling layers. Anyone want to co-author an update?',
+          replies: [
+            { id: 'dd-1-r1', initials: 'MR', username: 'marcus_r', timestamp: '55m ago', createdAt: t(55), text: 'I wrote my thesis on this — happy to contribute. DM me.', upvotes: 4 },
+            { id: 'dd-1-r2', initials: 'SP', username: 'sara_p', timestamp: '50m ago', createdAt: t(50), text: 'Global average pooling vs max pooling would be a great comparison.', upvotes: 2 },
+          ],
+          upvotes: 7,
+        },
+      ],
+    },
+    {
+      id: 'help', name: 'help', category: 'QUERIES', isQuery: true,
+      messages: [
+        {
+          id: 'help-1', initials: 'MR', username: 'marcus_r',
+          timestamp: '5m ago', createdAt: t(5), unread: true, isQuestion: true,
+          text: 'Is attention the same as self-attention? What is the difference?',
+          replies: [
+            { id: 'help-1-r1', initials: 'AK', username: 'alice_dev', timestamp: '3m ago', createdAt: t(3), text: 'Self-attention is a special case where Q, K, V all come from the same sequence. Attention is more general — Q can come from a different sequence (cross-attention).', upvotes: 6 },
+          ],
+          upvotes: 12, rep: '420',
+        },
+        {
+          id: 'help-2', initials: 'TW', username: 'theo_w',
+          timestamp: '2h ago', createdAt: t(120), unread: false, isQuestion: true,
+          text: 'How do I contribute to a scaffold node that already has a description?',
+          replies: [], upvotes: 4, rep: '120',
+        },
+      ],
+    },
+    {
+      id: 'theory', name: 'theory', category: 'QUERIES', isQuery: true,
+      messages: [
+        {
+          id: 'theory-1', initials: 'SP', username: 'sara_p',
+          timestamp: '22m ago', createdAt: t(22), unread: false, isQuestion: true,
+          text: 'Why does backprop struggle with vanishing gradients in deep nets?',
+          replies: [
+            { id: 'theory-1-r1', initials: 'CJ', username: 'carol_ai', timestamp: '18m ago', createdAt: t(18), text: 'Sigmoid saturates near 0/1, its derivative is near 0 there. Multiply many of those across layers and the gradient vanishes.', upvotes: 5 },
+            { id: 'theory-1-r2', initials: 'BL', username: 'bob_learn', timestamp: '15m ago', createdAt: t(15), text: 'ReLU was a big fix for this — derivative is exactly 1 for positive inputs, no saturation.', upvotes: 3 },
+          ],
+          upvotes: 8, rep: '310',
+        },
+      ],
+    },
+    {
+      id: 'resources', name: 'resources', category: 'QUERIES', isQuery: true,
+      messages: [
+        {
+          id: 'res-1', initials: 'TW', username: 'theo_w',
+          timestamp: '3h ago', createdAt: t(180), unread: false, isQuestion: true,
+          text: 'What are good resources for understanding the maths behind CNNs?',
+          replies: [
+            { id: 'res-1-r1', initials: 'MR', username: 'marcus_r', timestamp: '2h ago', createdAt: t(120), text: 'cs231n lecture notes (Stanford) are the gold standard. Chapter 9 of Deep Learning by Goodfellow is also excellent.', upvotes: 7 },
+            { id: 'res-1-r2', initials: 'SP', username: 'sara_p', timestamp: '90m ago', createdAt: t(90), text: '3Blue1Brown has a great visual series on convolutions.', upvotes: 4 },
+          ],
+          upvotes: 3, rep: '195',
+        },
+      ],
+    },
+  ]
+}
 
 const ONLINE_MEMBERS = [
   { initials: 'AK', name: 'alice_dev', status: 'online', activity: 'Editing · Gradient Descent' },
@@ -291,18 +277,33 @@ function StatusDot({ status }: { status: string }) {
 
 // ── localStorage helpers ───────────────────────────────────────────────────
 
-const LS_CHANNELS   = 'peerly_community_channels'
-const LS_VOTED      = 'peerly_community_voted'
-const LS_REPLY_VOTED = 'peerly_community_reply_voted'
-const LS_ACTIVE     = 'peerly_community_active_channel'
+// Keys are namespaced per weave so each community is isolated
+function lsKeys(weaveId: string) {
+  const ns = `peerly_community_${weaveId}`
+  return {
+    channels:    `${ns}_channels`,
+    voted:       `${ns}_voted`,
+    replyVoted:  `${ns}_reply_voted`,
+    active:      `${ns}_active_channel`,
+  }
+}
 
-function loadChannels(): Channel[] {
-  if (typeof window === 'undefined') return SEED_CHANNELS
+function loadChannels(weaveId: string): Channel[] {
+  if (typeof window === 'undefined') return makeSeedChannels()
   try {
-    const raw = localStorage.getItem(LS_CHANNELS)
-    if (!raw) return SEED_CHANNELS
-    return JSON.parse(raw) as Channel[]
-  } catch { return SEED_CHANNELS }
+    const raw = localStorage.getItem(lsKeys(weaveId).channels)
+    if (!raw) return makeSeedChannels()
+    const parsed = JSON.parse(raw) as Channel[]
+    // Back-fill createdAt for any stored messages that predate the field
+    return parsed.map(ch => ({
+      ...ch,
+      messages: ch.messages.map(m => ({
+        ...m,
+        createdAt: m.createdAt ?? Date.now(),
+        replies: m.replies.map(r => ({ ...r, createdAt: r.createdAt ?? Date.now() })),
+      })),
+    }))
+  } catch { return makeSeedChannels() }
 }
 
 function loadSet(key: string): Set<string> {
@@ -313,8 +314,8 @@ function loadSet(key: string): Set<string> {
   } catch { return new Set() }
 }
 
-function saveChannels(channels: Channel[]) {
-  try { localStorage.setItem(LS_CHANNELS, JSON.stringify(channels)) } catch {}
+function saveChannels(weaveId: string, channels: Channel[]) {
+  try { localStorage.setItem(lsKeys(weaveId).channels, JSON.stringify(channels)) } catch {}
 }
 
 function saveSet(key: string, s: Set<string>) {
@@ -323,21 +324,30 @@ function saveSet(key: string, s: Set<string>) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function CommunityHub() {
+interface CommunityHubProps {
+  weaveId?: string       // e.g. weave slug or id — defaults to 'global'
+  weaveName?: string     // display name shown in the header
+}
+
+export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProps) {
   const { earn } = useLumens()
 
-  const [channels, setChannels] = useState<Channel[]>(() => loadChannels())
+  // keys is stable per weaveId — memoised so effects deps don't fire on every render
+  const keys = useMemo(() => lsKeys(weaveId), [weaveId])
+
+  const [channels, setChannels] = useState<Channel[]>(() => loadChannels(weaveId))
   const [activeChannelId, setActiveChannelId] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'resources'
-    return localStorage.getItem(LS_ACTIVE) ?? 'resources'
+    if (typeof window === 'undefined') return 'general'
+    return localStorage.getItem(keys.active) ?? 'general'
   })
   const [collapsedCats, setCollapsedCats] = useState<Record<string, boolean>>({})
   const [showMembers, setShowMembers] = useState(false)
   const [msgInput, setMsgInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
-  const [votedIds, setVotedIds] = useState<Set<string>>(() => loadSet(LS_VOTED))
-  const [replyVotedIds, setReplyVotedIds] = useState<Set<string>>(() => loadSet(LS_REPLY_VOTED))
+  const [sortMode, setSortMode] = useState<'top' | 'new' | 'hot'>('top')
+  const [votedIds, setVotedIds] = useState<Set<string>>(() => loadSet(keys.voted))
+  const [replyVotedIds, setReplyVotedIds] = useState<Set<string>>(() => loadSet(keys.replyVoted))
   // expanded reply threads: set of message ids
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set())
   // which message we're replying to (null = new top-level post)
@@ -394,12 +404,46 @@ export function CommunityHub() {
   const discussionChannels = channels.filter(c => c.category === 'DISCUSSIONS')
   const queryChannels = channels.filter(c => c.category === 'QUERIES')
 
-  const displayedMessages = searchQuery.trim()
+  // ── Scoring & sorting ────────────────────────────────────────────────────
+
+  function ageMinutes(m: Message): number {
+    // Use real createdAt if available, otherwise fall back to parsed timestamp string
+    if (m.createdAt) return (Date.now() - m.createdAt) / 60_000
+    const match = m.timestamp.match(/^(\d+)(m|h|d)/)
+    if (!match) return 0
+    return Number(match[1]) * (match[2] === 'h' ? 60 : match[2] === 'd' ? 1440 : 1)
+  }
+
+  function scoreMessage(m: Message): number {
+    if (m.pendingSend) return -Infinity
+    const rep    = parseFloat(m.rep ?? '0') || 0
+    const decay  = ageMinutes(m) / 60          // hours old
+    return m.upvotes * 2 + rep * 0.01 + m.replies.length * 1.5 - decay
+  }
+
+  function hotScore(m: Message): number {
+    if (m.pendingSend) return -Infinity
+    return m.upvotes * 3 + m.replies.length - ageMinutes(m) * 0.05
+  }
+
+  const baseMessages = searchQuery.trim()
     ? activeChannel.messages.filter(m =>
         m.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
         m.username.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : activeChannel.messages
+
+  const displayedMessages = [...baseMessages].sort((a, b) => {
+    // Pending (own unsent) posts always pin to bottom regardless of mode
+    if (a.pendingSend && !b.pendingSend) return 1
+    if (!a.pendingSend && b.pendingSend) return -1
+    if (sortMode === 'new') {
+      // newest first: higher createdAt = smaller index
+      return (b.createdAt ?? 0) - (a.createdAt ?? 0)
+    }
+    if (sortMode === 'hot') return hotScore(b) - hotScore(a)
+    return scoreMessage(b) - scoreMessage(a)   // 'top' default
+  })
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -434,6 +478,7 @@ export function CommunityHub() {
         initials: g.initials,
         username: g.username,
         timestamp: 'just now',
+        createdAt: Date.now(),
         unread: g.channelId !== activeChannelId,
         text: g.text,
         replies: [],
@@ -449,19 +494,36 @@ export function CommunityHub() {
 
   // ── Persistence ──────────────────────────────────────────────────────────
 
-  // Persist channels whenever they change (debounced 300ms to avoid hammering on every keystroke)
+  // Persist channels whenever they change (debounced 300ms)
   useEffect(() => {
-    const t = setTimeout(() => saveChannels(channels), 300)
+    const t = setTimeout(() => saveChannels(weaveId, channels), 300)
     return () => clearTimeout(t)
-  }, [channels])
+  }, [channels, weaveId])
 
-  useEffect(() => { saveSet(LS_VOTED, votedIds) }, [votedIds])
-  useEffect(() => { saveSet(LS_REPLY_VOTED, replyVotedIds) }, [replyVotedIds])
+  useEffect(() => { saveSet(keys.voted, votedIds) }, [votedIds, keys.voted])
+  useEffect(() => { saveSet(keys.replyVoted, replyVotedIds) }, [replyVotedIds, keys.replyVoted])
   useEffect(() => {
-    try { localStorage.setItem(LS_ACTIVE, activeChannelId) } catch {}
-  }, [activeChannelId])
+    try { localStorage.setItem(keys.active, activeChannelId) } catch {}
+  }, [activeChannelId, keys.active])
 
 
+
+  // When weaveId prop changes (user opens a different weave), reload all state
+  useEffect(() => {
+    const k = lsKeys(weaveId)
+    setChannels(loadChannels(weaveId))
+    setActiveChannelId(
+      (typeof window !== 'undefined' ? localStorage.getItem(k.active) : null) ?? 'general'
+    )
+    setVotedIds(loadSet(k.voted))
+    setReplyVotedIds(loadSet(k.replyVoted))
+    setExpandedReplies(new Set())
+    setReplyingTo(null)
+    setMsgInput('')
+    setSearchQuery('')
+    setShowSearch(false)
+    setSortMode('top')
+  }, [weaveId])
 
   const switchChannel = useCallback((id: string) => {
     setActiveChannelId(id)
@@ -580,6 +642,7 @@ export function CommunityHub() {
         initials: 'D',
         username: 'demo_user',
         timestamp: 'just now',
+        createdAt: Date.now(),
         text,
         upvotes: 0,
         isOwn: true,
@@ -605,6 +668,7 @@ export function CommunityHub() {
         initials: 'D',
         username: 'demo_user',
         timestamp: 'just now',
+        createdAt: Date.now(),
         unread: false,
         text,
         replies: [],
@@ -647,6 +711,7 @@ export function CommunityHub() {
       initials: 'D',
       username: 'demo_user',
       timestamp: 'just now',
+      createdAt: Date.now(),
       unread: false,
       text,
       replies: [],
@@ -1003,11 +1068,11 @@ export function CommunityHub() {
         {/* Expanded reply thread */}
         {isExpanded && (
           <div className="mt-2.5 ml-9 border-l-2 border-border/40 pl-3 space-y-2.5">
-            {/* Existing replies */}
+            {/* Existing replies — sorted by upvotes */}
             {msg.replies.length === 0 && (
               <p className="text-[10px] text-muted-foreground italic">No replies yet — be the first!</p>
             )}
-            {msg.replies.map(r => {
+            {[...msg.replies].sort((a, b) => b.upvotes - a.upvotes).map(r => {
               const replyVoted = replyVotedIds.has(r.id)
               return (
                 <div key={r.id} className={`flex gap-2 ${r.isOwn ? 'opacity-90' : ''}`}>
@@ -1138,12 +1203,19 @@ export function CommunityHub() {
 
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-3 border-b border-border/40 sticky top-0 bg-[#0d0d0d] z-10">
-          <div className="flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="relative flex h-2 w-2 shrink-0">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
             </span>
-            <span className="text-xs font-bold text-foreground">Community</span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-foreground truncate leading-tight">
+                {weaveName ?? 'Community'}
+              </p>
+              {weaveName && (
+                <p className="text-[9px] text-muted-foreground leading-none">community hub</p>
+              )}
+            </div>
           </div>
           <button
             onClick={() => setShowMembers(!showMembers)}
@@ -1250,6 +1322,23 @@ export function CommunityHub() {
                 {activeChannel.isQuery ? '· Q&A' : '· Discussion'}
               </span>
               <div className="ml-auto flex items-center gap-2">
+                {/* Sort toggle */}
+                <div className="flex items-center rounded-md border border-border/50 overflow-hidden">
+                  {(['top', 'hot', 'new'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setSortMode(mode)}
+                      className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide transition-colors ${
+                        sortMode === mode
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                      title={mode === 'top' ? 'Top (score + rep)' : mode === 'hot' ? 'Hot (trending now)' : 'New (recent first)'}
+                    >
+                      {mode === 'hot' ? '🔥' : mode === 'top' ? '↑' : '🕐'}
+                    </button>
+                  ))}
+                </div>
                 <button
                   onClick={() => { setShowSearch(p => !p); if (showSearch) setSearchQuery('') }}
                   className={`transition-colors ${showSearch ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
