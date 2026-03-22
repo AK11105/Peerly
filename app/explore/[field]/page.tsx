@@ -138,14 +138,14 @@ export default function FieldPage() {
                   </div>
 
                   <div className="flex gap-3 text-xs text-muted-foreground mb-4">
-                    <span className="text-primary font-medium">{communityNodes} community</span>
+                    <span className="text-primary font-medium">{communityNodes} nodes contributed</span>
                     <span>·</span>
                     <span>{scaffolds} open scaffolds</span>
                   </div>
 
                   <div className="space-y-1.5 mb-4">
                     <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Community fill</span>
+                      <span>Progress</span>
                       <span>{pct}%</span>
                     </div>
                     <div className="h-1.5 bg-background rounded-full overflow-hidden">

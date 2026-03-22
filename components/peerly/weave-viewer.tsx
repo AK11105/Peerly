@@ -144,7 +144,7 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
       )}
 
       {/* Mind map view */}
-      {view === 'map' && <MindMapView weaveNodes={weave.nodes} />}
+      {view === 'map' && <MindMapView weaveNodes={weave.nodes} onViewDetail={handleViewDetail}/>}
 
       {/* Node detail drawer */}
       <NodeDetailDrawer

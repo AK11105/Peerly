@@ -166,11 +166,12 @@ function CreateWeaveForm() {
             })}
           </div>
 
-          <div className="flex justify-between text-xs text-muted-foreground">
-            {stepLabels.map((label) => (
-              <span key={label}>{label}</span>
-            ))}
-          </div>
+        <div className="flex text-xs text-muted-foreground mt-2">
+  <span className="w-10 text-center">{stepLabels[0]}</span>
+  {stepLabels.slice(1).map((label) => (
+    <span key={label} className="flex-1 text-center">{label}</span>
+  ))}
+</div>
 
           {/* Field badge — shown when a field is selected, with X to clear and dropdown to change */}
           {selectedField && (

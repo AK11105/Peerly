@@ -17,6 +17,11 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import type { WeaveNode } from '@/lib/types'
 
+interface MindMapViewProps {
+  weaveNodes: WeaveNode[]
+  onViewDetail?: (node: WeaveNode) => void
+}
+
 // ---- Custom Community Node ----
 function CommunityNode({ data }: NodeProps) {
   const node: WeaveNode = data.node
@@ -50,8 +55,8 @@ function CommunityNode({ data }: NodeProps) {
           <div className="h-1.5 flex-1 rounded-full bg-[#1F1F1F]">
             <div className="h-full w-3/4 rounded-full bg-gradient-to-r from-primary to-primary" />
           </div>
-          <span className="text-[10px] text-muted-foreground">75%</span>
         </div>
+        <p className="mt-2 text-[10px] text-[#6B7280]">Click to view details</p>
       </div>
       <Handle type="source" position={Position.Bottom} style={{ background: '#22C55E', border: 'none' }} />
     </>
@@ -86,6 +91,7 @@ function ScaffoldNode({ data }: NodeProps) {
             AI Draft
           </span>
         </div>
+        <p className="mt-1 text-[10px] text-[#6B7280]">Click to contribute</p>
       </div>
       <Handle type="source" position={Position.Bottom} style={{ background: '#F59E0B', border: 'none' }} />
     </>
@@ -120,9 +126,6 @@ const nodeTypes = {
   rootNode: RootNode,
 }
 
-const edgeTypes = {}
-
-// ---- Simple Grid Layout Function (without dagre) ----
 function layoutNodes(
   weaveNodes: WeaveNode[],
   selectedNodeId: string | null
@@ -130,7 +133,6 @@ function layoutNodes(
   const nodes: Node[] = []
   const edges: Edge[] = []
 
-  // Root node at top center
   const rootId = 'root'
   nodes.push({
     id: rootId,
@@ -139,7 +141,6 @@ function layoutNodes(
     data: { node: { id: rootId, title: 'Knowledge Weave', depth: -1 } },
   })
 
-  // Group nodes by depth
   const nodesByDepth: Record<number, WeaveNode[]> = {}
   weaveNodes.forEach((n) => {
     if (!nodesByDepth[n.depth]) nodesByDepth[n.depth] = []
@@ -150,9 +151,6 @@ function layoutNodes(
     .map(Number)
     .sort((a, b) => a - b)
 
-  // Position nodes in a grid by depth
-  const nodeWidth = 200
-  const nodeHeight = 100
   const depthSpacing = 150
   const horizontalSpacing = 250
 
@@ -174,7 +172,6 @@ function layoutNodes(
         data: { node, isSelected },
       })
 
-      // Edge from root to depth-0 nodes
       if (depth === 0) {
         edges.push({
           id: `e-${rootId}-${node.id}`,
@@ -192,7 +189,6 @@ function layoutNodes(
     })
   })
 
-  // Edges between consecutive depths (simple parent-child by index)
   sortedDepths.forEach((depth, depthIndex) => {
     if (depthIndex > 0) {
       const parentDepth = sortedDepths[depthIndex - 1]
@@ -222,11 +218,7 @@ function layoutNodes(
   return { nodes, edges }
 }
 
-interface MindMapViewProps {
-  weaveNodes: WeaveNode[]
-}
-
-export function MindMapView({ weaveNodes }: MindMapViewProps) {
+export function MindMapView({ weaveNodes, onViewDetail }: MindMapViewProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
@@ -236,7 +228,6 @@ export function MindMapView({ weaveNodes }: MindMapViewProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, , onEdgesChange] = useEdgesState(initialEdges)
 
-  // Update nodes when layout changes
   useMemo(() => {
     setNodes(initialNodes)
   }, [initialNodes, setNodes])
@@ -245,9 +236,19 @@ export function MindMapView({ weaveNodes }: MindMapViewProps) {
     instance.fitView()
   }, [])
 
-  const handleNodeClick = (nodeId: string) => {
-    setSelectedNodeId((prev) => (prev === nodeId ? null : nodeId))
-  }
+  const handleNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      if (node.id === 'root') return
+
+      setSelectedNodeId((prev) => (prev === node.id ? null : node.id))
+
+      const weaveNode = weaveNodes.find((n) => n.id === node.id)
+      if (weaveNode && onViewDetail) {
+        onViewDetail(weaveNode)
+      }
+    },
+    [weaveNodes, onViewDetail]
+  )
 
   return (
     <div
@@ -259,9 +260,8 @@ export function MindMapView({ weaveNodes }: MindMapViewProps) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
         onInit={onInit}
-        onNodeClick={(_, node) => handleNodeClick(node.id)}
+        onNodeClick={handleNodeClick}
         fitView
         proOptions={{ hideAttribution: true }}
         style={{ background: '#0A0A0A' }}
