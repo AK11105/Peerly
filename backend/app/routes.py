@@ -199,3 +199,35 @@ def explain_node(body: ExplainNodeRequest):
         return {"explainer": text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ollama error: {e}")
+
+
+@router.post("/weaves/{weave_id}/nodes/{node_id}/contribute", response_model=Weave)
+def add_perspective(weave_id: str, node_id: str, body: AddNodeRequest):
+    """Add an additional perspective/explanation to an existing community node."""
+    weave = store.get_weave(weave_id)
+    if not weave:
+        raise HTTPException(status_code=404, detail="Weave not found")
+    target = next((n for n in weave.nodes if n.id == node_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Node not found")
+
+    # Append the new perspective to the existing description
+    separator = "\n\n---\n\n"
+    attribution = f"**{body.contributed_by}:** "
+    target.description = target.description + separator + attribution + body.description
+    store.save_weave(weave)
+    return weave
+
+@router.post("/weaves/{weave_id}/nodes/{node_id}/contribute", response_model=Weave)
+def add_perspective(weave_id: str, node_id: str, body: AddNodeRequest):
+    weave = store.get_weave(weave_id)
+    if not weave:
+        raise HTTPException(status_code=404, detail="Weave not found")
+    target = next((n for n in weave.nodes if n.id == node_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Node not found")
+    separator = "\n\n---\n\n"
+    attribution = f"**{body.contributed_by}:** "
+    target.description = target.description + separator + attribution + body.description
+    store.save_weave(weave)
+    return weave

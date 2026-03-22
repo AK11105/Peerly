@@ -35,6 +35,8 @@ export function ContributeModal({
   const [description, setDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { earn } = useLumens()
+  const [link, setLink] = useState('')
+  const [linkError, setLinkError] = useState('')
 
   const handleSubmit = async () => {
     if (!node) return
@@ -45,11 +47,25 @@ export function ContributeModal({
     }
     setIsLoading(true)
     try {
+        if (link.trim()) {
+            try {
+                const url = new URL(link.trim())
+                if (url.protocol !== 'https:') {
+                setLinkError('Only https:// links are allowed')
+                return
+                }
+            } catch {
+                setLinkError('Please enter a valid URL')
+                return
+            }
+        }
+
+
       await contributeToScaffold(weaveId, {
         weave_id: weaveId,
         scaffold_node_id: node.id,
         title: title.trim() || node.title.trim(),
-        description: description.trim(),
+        description: link.trim() ? `${description.trim()}\n\nReference: ${link.trim()}` : description.trim(),
         contributed_by: 'demo_user',
       })
 
@@ -58,6 +74,8 @@ export function ContributeModal({
       setDescription('')
       onOpenChange(false)
       onRefresh()
+      setLink('')
+      setLinkError('')
 
       toast.success('+50 LM earned! Contribution saved.', {
         style: { borderLeft: '3px solid #22C55E' },
@@ -126,6 +144,28 @@ export function ContributeModal({
               className="resize-none bg-background border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
+
+          <div className="flex flex-col gap-1.5">
+  <label className="text-xs font-medium text-muted-foreground">
+    Link <span className="text-muted-foreground/50">(optional)</span>
+  </label>
+  <Input
+    placeholder="https://..."
+    value={link}
+    onChange={(e) => { setLink(e.target.value); setLinkError('') }}
+    onBlur={() => {
+      if (!link.trim()) return
+      try {
+        const url = new URL(link.trim())
+        if (url.protocol !== 'https:') setLinkError('Only https:// links are allowed')
+      } catch {
+        setLinkError('Please enter a valid URL')
+      }
+    }}
+    className="bg-background border-border text-foreground placeholder:text-muted-foreground"
+  />
+  {linkError && <p className="text-xs text-destructive">{linkError}</p>}
+</div>
 
           <div className="flex items-center gap-3 pt-1">
             <Button

@@ -48,3 +48,17 @@ export async function contributeToScaffold(weaveId: string, payload: ContributeP
   if (!res.ok) throw new Error('Failed to contribute')
   return res.json()
 }
+
+export async function addPerspective(
+  weaveId: string,
+  nodeId: string,
+  payload: AddNodePayload
+) {
+  const res = await fetch(`${API_BASE}/api/weaves/${weaveId}/nodes/${nodeId}/contribute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, weave_id: weaveId }),
+  })
+  if (!res.ok) throw new Error('Failed to add perspective')
+  return res.json()
+}

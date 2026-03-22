@@ -136,7 +136,7 @@ useEffect(() => {
 
         {/* Center: weave content */}
         <main className="flex-1 min-w-0 overflow-y-auto px-6 py-8 relative">
-          <WeaveViewer weave={weave} onUnlock={handleUnlock} />
+          <WeaveViewer weave={weave} onUnlock={handleUnlock} onRefresh={loadWeave}/>
 
           {/* Toggle button — floats at the right edge of main, always visible */}
           <button

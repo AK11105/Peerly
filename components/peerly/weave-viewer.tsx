@@ -6,6 +6,8 @@ import { List, Network } from 'lucide-react'
 import { CommunityProgressBar } from './community-progress-bar'
 import { NodeCard } from './node-card'
 import { NodeDetailDrawer } from './node-detail-drawer'
+import { ContributeModal } from './contribute-modal'
+import { AddPerspectiveModal } from './add-perspective-modal'
 import { SponsoredCard, SPONSORED_ADS } from './sponsored-card'
 import type { Weave, WeaveNode } from '@/lib/types'
 
@@ -17,6 +19,7 @@ const MindMapView = dynamic(
 interface WeaveViewerProps {
   weave: Weave
   onUnlock: (node: WeaveNode) => void
+  onRefresh: () => void
 }
 
 const STAGE_LABELS: Record<number, string> = {
@@ -27,14 +30,36 @@ const STAGE_LABELS: Record<number, string> = {
   5: 'Mastery',
 }
 
-export function WeaveViewer({ weave, onUnlock }: WeaveViewerProps) {
+export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
   const [view, setView] = useState<'list' | 'map'>('list')
+
+  // Drawer
   const [selectedNode, setSelectedNode] = useState<WeaveNode | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // Scaffold contribute modal (replace AI draft)
+  const [scaffoldNode, setScaffoldNode] = useState<WeaveNode | null>(null)
+  const [scaffoldModalOpen, setScaffoldModalOpen] = useState(false)
+
+  // Community perspective modal (add to existing node)
+  const [communityNode, setCommunityNode] = useState<WeaveNode | null>(null)
+  const [perspectiveModalOpen, setPerspectiveModalOpen] = useState(false)
 
   const handleViewDetail = (node: WeaveNode) => {
     setSelectedNode(node)
     setDrawerOpen(true)
+  }
+
+  // Called from NodeCard UNLOCK button and drawer for scaffold nodes
+  const handleUnlock = (node: WeaveNode) => {
+    setScaffoldNode(node)
+    setScaffoldModalOpen(true)
+  }
+
+  // Called from drawer for community nodes
+  const handleCommunityContribute = (node: WeaveNode) => {
+    setCommunityNode(node)
+    setPerspectiveModalOpen(true)
   }
 
   const nodesByDepth = useMemo(() => {
@@ -47,10 +72,7 @@ export function WeaveViewer({ weave, onUnlock }: WeaveViewerProps) {
   }, [weave.nodes])
 
   const depths = useMemo(
-    () =>
-      Object.keys(nodesByDepth)
-        .map(Number)
-        .sort((a, b) => a - b),
+    () => Object.keys(nodesByDepth).map(Number).sort((a, b) => a - b),
     [nodesByDepth]
   )
 
@@ -109,8 +131,7 @@ export function WeaveViewer({ weave, onUnlock }: WeaveViewerProps) {
               <div className="mx-auto flex max-w-[640px] flex-col gap-3">
                 {nodesByDepth[depth].map((node, idx) => (
                   <div key={node.id}>
-                    <NodeCard node={node} onUnlock={onUnlock} onViewDetail={handleViewDetail} />
-                    {/* Inject sponsored ad after 5th community node */}
+                    <NodeCard node={node} onUnlock={handleUnlock} onViewDetail={handleViewDetail} />
                     {!node.is_scaffold && idx === 4 && depth === 2 && (
                       <SponsoredCard ad={SPONSORED_ADS[0]} variant="inline" className="mt-3" />
                     )}
@@ -132,7 +153,26 @@ export function WeaveViewer({ weave, onUnlock }: WeaveViewerProps) {
         allNodes={weave.nodes}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        onUnlock={onUnlock}
+        onUnlock={handleUnlock}
+        onContribute={handleCommunityContribute}
+      />
+
+      {/* Scaffold contribute modal — replaces AI draft */}
+      <ContributeModal
+        node={scaffoldNode}
+        weaveId={weave.id}
+        open={scaffoldModalOpen}
+        onOpenChange={setScaffoldModalOpen}
+        onRefresh={onRefresh}
+      />
+
+      {/* Perspective modal — appends to community node */}
+      <AddPerspectiveModal
+        node={communityNode}
+        weaveId={weave.id}
+        open={perspectiveModalOpen}
+        onOpenChange={setPerspectiveModalOpen}
+        onRefresh={onRefresh}
       />
     </main>
   )
