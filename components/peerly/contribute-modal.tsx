@@ -38,8 +38,9 @@ export function ContributeModal({
 
   const handleSubmit = async () => {
     if (!node) return
-    if (!title.trim() || !description.trim()) {
-      toast.error('Please fill in both fields.')
+
+    if (!description.trim()) {
+      toast.error('Please fill in the description field.')
       return
     }
     setIsLoading(true)
@@ -47,7 +48,7 @@ export function ContributeModal({
       await contributeToScaffold(weaveId, {
         weave_id: weaveId,
         scaffold_node_id: node.id,
-        title: title.trim(),
+        title: title.trim() || node.title.trim(),
         description: description.trim(),
         contributed_by: 'demo_user',
       })
