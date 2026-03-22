@@ -35,6 +35,8 @@ backend/**/__pycache__/
 backend/*.pyc
 backend/.env.example
 
+__pycache__/
+
 # Backend data (local only — don't commit weave data)
 backend/data/weaves.json
 
