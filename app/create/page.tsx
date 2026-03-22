@@ -60,7 +60,7 @@ export default function CreateWeavePage() {
     }, 200)
 
     try {
-      const weave = await generateWeave(topic, [])
+      const weave = await generateWeave(topic, [] , selectedField || undefined)
 
       clearInterval(interval)
       setProgress(100)

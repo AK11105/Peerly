@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { fetchAllWeaves } from '@/lib/api'
+import { FIELDS, matchesField } from '@/lib/fields'
 import type { Weave } from '@/lib/types'
 
 function slugToLabel(slug: string) {
@@ -21,7 +22,6 @@ export default function FieldPage() {
   const router = useRouter()
   const fieldSlug = params?.field as string
   const fieldLabel = slugToLabel(fieldSlug ?? '')
-  const fieldKeyword = fieldLabel.split(' ')[0].toLowerCase()
 
   const [allWeaves, setAllWeaves] = useState<Weave[]>([])
   const [search, setSearch] = useState('')
@@ -34,15 +34,16 @@ export default function FieldPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  const fieldData = FIELDS.find(f => f.name.toLowerCase() === fieldLabel.toLowerCase())
+
   const fieldWeaves = allWeaves.filter((w) =>
-    w.topic.toLowerCase().includes(fieldKeyword)
+    matchesField(w, fieldLabel, fieldData?.keywords ?? [])
   )
 
   const filtered = search.trim()
     ? fieldWeaves.filter((w) => w.topic.toLowerCase().includes(search.toLowerCase()))
     : fieldWeaves
 
-  // Highlight matching text
   function highlight(text: string, query: string) {
     if (!query.trim()) return <>{text}</>
     const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
@@ -113,7 +114,7 @@ export default function FieldPage() {
                 : `No weaves match "${search}"`}
             </p>
             <p className="text-muted-foreground text-sm mb-6">Be the first to create one</p>
-            <Link href="/create">
+            <Link href={`/create?field=${encodeURIComponent(fieldLabel)}`}>
               <Button className="bg-primary hover:bg-primary/90">Create a Weave</Button>
             </Link>
           </div>

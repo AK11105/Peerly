@@ -11,6 +11,7 @@ export interface WeaveNode {
 export interface Weave {
   id: string
   topic: string
+  field? : string 
   nodes: WeaveNode[]
 }
 

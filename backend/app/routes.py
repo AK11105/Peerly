@@ -33,7 +33,13 @@ def get_weave(weave_id: str):
 def generate_weave(body: GenerateWeaveRequest):
     """AI-generate a full weave. This is the only blocking AI call — user waits at /create."""
     nodes = ai.generate_weave(body.topic, body.seed_nodes or [])
-    weave = Weave(id=str(uuid.uuid4()), topic=body.topic, nodes=nodes)
+    weave = Weave(
+        id=str(uuid.uuid4()), 
+        topic=body.topic, 
+        field=body.field,
+        nodes=nodes
+
+        )
     store.save_weave(weave)
     return weave
 

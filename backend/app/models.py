@@ -16,10 +16,13 @@ class Weave(BaseModel):
     id: str
     topic: str
     nodes: list[Node] = []
+    field: Optional[str] = None 
+    nodes: list[Node] = []
 
 
 class GenerateWeaveRequest(BaseModel):
     topic: str
+    field : Optional[str] = None
     seed_nodes: Optional[list[str]] = []
 
 
@@ -50,3 +53,4 @@ class GapDetectionResult(BaseModel):
     gap_detected: bool
     missing_concept: Optional[str] = None
     scaffold_node: Optional[ScaffoldNode] = None
+

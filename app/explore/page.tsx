@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { Search, Zap, Braces, Microscope, DollarSign, BookOpen, Clock, Palette, X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
 import { SponsoredCard, SPONSORED_ADS } from '@/components/peerly/sponsored-card'
 import { Button } from '@/components/ui/button'
@@ -10,18 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { fetchAllWeaves } from '@/lib/api'
+import { FIELDS, matchesField } from '@/lib/fields'
 import type { Weave } from '@/lib/types'
-
-const FIELDS = [
-  { name: 'Computer Science', icon: Braces, keyword: 'computer' },
-  { name: 'Mathematics', icon: Zap, keyword: 'math' },
-  { name: 'Physics', icon: Microscope, keyword: 'physics' },
-  { name: 'Biology', icon: BookOpen, keyword: 'biology' },
-  { name: 'Economics', icon: DollarSign, keyword: 'economics' },
-  { name: 'Language Learning', icon: BookOpen, keyword: 'language' },
-  { name: 'History', icon: Clock, keyword: 'history' },
-  { name: 'Design', icon: Palette, keyword: 'design' },
-]
 
 function Highlight({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>
@@ -113,9 +103,7 @@ export default function ExplorePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {matchedFields.map((field) => {
                     const Icon = field.icon
-                    const count = weaves.filter((w) =>
-                      w.topic.toLowerCase().includes(field.keyword)
-                    ).length
+                    const count = weaves.filter((w) => matchesField(w, field.name, field.keywords)).length
                     return (
                       <Link key={field.name} href={`/explore/${field.name.toLowerCase().replace(/\s+/g, '-')}`}>
                         <Card className="p-4 hover:border-primary hover:shadow-md transition-all cursor-pointer bg-card border-border flex items-center gap-3">
@@ -143,9 +131,7 @@ export default function ExplorePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {FIELDS.map((field) => {
                     const Icon = field.icon
-                    const count = weaves.filter((w) =>
-                      w.topic.toLowerCase().includes(field.keyword)
-                    ).length
+                    const count = weaves.filter((w) => matchesField(w, field.name, field.keywords)).length
                     return (
                       <Link key={field.name} href={`/explore/${field.name.toLowerCase().replace(/\s+/g, '-')}`}>
                         <Card className="p-5 hover:border-primary hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer bg-card border-border">

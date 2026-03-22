@@ -19,11 +19,11 @@ export async function fetchAllWeaves(): Promise<Weave[]> {
   return res.json()
 }
 
-export async function generateWeave(topic: string, seedNodes: string[] = []): Promise<Weave> {
+export async function generateWeave(topic: string, seedNodes: string[] = [], field?: string): Promise<Weave> {
   const res = await fetch(`${API_BASE}/api/weaves/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ topic, seed_nodes: seedNodes }),
+    body: JSON.stringify({ topic, seed_nodes: seedNodes , field}),
   })
   if (!res.ok) throw new Error('Failed to generate weave')
   return res.json()
