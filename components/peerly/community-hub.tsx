@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
-  Flame, ArrowUp, MessageSquare, Hash,
+  Flame, ArrowUp, ArrowUpRight, MessageSquare, Hash,
   ChevronRight, ChevronDown, Users, Zap, Plus, Search, Send, X, CornerDownRight, Trash2, Paperclip
 } from 'lucide-react'
 import { SponsoredCard, SPONSORED_ADS } from './sponsored-card'
@@ -99,116 +99,284 @@ function renderWithMentions(text: string) {
 
 // ── Seed data ──────────────────────────────────────────────────────────────
 
-// Seed factory — called fresh per weave so each gets its own copy
-function makeSeedChannels(): Channel[] {
+// ── Per-topic seed content ─────────────────────────────────────────────────
+type SeedContent = {
+  general:    { text: string; username: string; initials: string; rep?: string; replies?: { text: string; username: string; initials: string; upvotes: number }[] ; upvotes: number }[]
+  suggestions:{ text: string; username: string; initials: string; upvotes: number; replies?: { text: string; username: string; initials: string; upvotes: number }[] }[]
+  deepDives:  { text: string; username: string; initials: string; upvotes: number; replies?: { text: string; username: string; initials: string; upvotes: number }[] }[]
+  help:       { text: string; username: string; initials: string; rep?: string; upvotes: number; replies?: { text: string; username: string; initials: string; upvotes: number }[] }[]
+  theory:     { text: string; username: string; initials: string; rep?: string; upvotes: number; replies?: { text: string; username: string; initials: string; upvotes: number }[] }[]
+  resources:  { text: string; username: string; initials: string; rep?: string; upvotes: number; replies?: { text: string; username: string; initials: string; upvotes: number }[] }[]
+}
+
+function getTopicSeed(topic: string): SeedContent {
+  const t = topic.toLowerCase()
+
+  // ── Gradient Descent / Optimisation ───────────────────────────────────────
+  if (/gradient|descent|optimis|optim|sgd|adam|lr|learning.rate/.test(t)) return {
+    general: [
+      { text: 'The ball-rolling-downhill analogy for gradient descent finally clicked for me after reading this weave. The visualisations are great.', username: 'alice_dev', initials: 'AK', upvotes: 4,
+        replies: [{ text: 'Same! The 3D loss surface diagram is what made it stick.', username: 'bob_learn', initials: 'BL', upvotes: 2 }] },
+      { text: 'Anyone else find momentum-based optimisers more intuitive once you think of them as a ball with inertia rather than just a gradient average?', username: 'carol_ai', initials: 'CJ', upvotes: 3, replies: [] },
+    ],
+    suggestions: [
+      { text: 'Would love a node comparing Adam vs AdamW — the weight decay difference trips a lot of people up.', username: 'marcus_r', initials: 'MR', upvotes: 5,
+        replies: [{ text: 'AdamW decouples weight decay from the gradient update — a separate node would be really useful.', username: 'sara_p', initials: 'SP', upvotes: 3 }] },
+      { text: 'A visual showing how learning rate affects the loss trajectory would be a great addition to the LR scheduler node.', username: 'bob_learn', initials: 'BL', upvotes: 2, replies: [] },
+    ],
+    deepDives: [
+      { text: 'Deep dive: saddle points are actually more common than local minima in high-dimensional loss landscapes. The literature on this is fascinating — Dauphin et al. 2014 is worth reading.', username: 'carol_ai', initials: 'CJ', upvotes: 7,
+        replies: [
+          { text: 'Agreed. Most "local minima" complaints in practice are actually saddle point issues.', username: 'alice_dev', initials: 'AK', upvotes: 4 },
+          { text: 'The Hessian eigenvalue analysis in that paper is dense but worth it.', username: 'marcus_r', initials: 'MR', upvotes: 2 },
+        ] },
+    ],
+    help: [
+      { text: 'Why does gradient descent sometimes diverge even with a small learning rate?', username: 'theo_w', initials: 'TW', upvotes: 8, rep: '120',
+        replies: [{ text: 'Batch size interacts with learning rate — if your batch is very small, gradient variance is high and can cause divergence even with a small LR. Try gradient clipping.', username: 'alice_dev', initials: 'AK', upvotes: 6 }] },
+      { text: 'What is the difference between stochastic, mini-batch, and full-batch gradient descent in practice?', username: 'ravi_k', initials: 'RK', upvotes: 5, rep: '95',
+        replies: [{ text: 'Full-batch is exact but slow per update. SGD is noisy but fast. Mini-batch (typical default 32–256) balances both — GPU parallelism also favours mini-batch.', username: 'carol_ai', initials: 'CJ', upvotes: 4 }] },
+    ],
+    theory: [
+      { text: 'Is the loss surface of a neural network convex? If not, how does gradient descent find good solutions?', username: 'sara_p', initials: 'SP', upvotes: 9, rep: '310',
+        replies: [
+          { text: 'Not convex — highly non-convex. But over-parameterised networks have many "good enough" minima. The implicit regularisation of SGD tends to find flat minima that generalise well.', username: 'carol_ai', initials: 'CJ', upvotes: 7 },
+          { text: 'The lottery ticket hypothesis also suggests that sparse subnetworks exist that train just as well — related to why we find good minima.', username: 'marcus_r', initials: 'MR', upvotes: 3 },
+        ] },
+    ],
+    resources: [
+      { text: 'What are the best resources for building intuition on optimisation algorithms beyond the basics?', username: 'theo_w', initials: 'TW', upvotes: 6, rep: '195',
+        replies: [
+          { text: 'Sebastian Ruder\'s blog post "An overview of gradient descent optimisation algorithms" is the canonical reference — clear, comprehensive.', username: 'alice_dev', initials: 'AK', upvotes: 8 },
+          { text: 'distill.pub/2017/momentum is a beautiful interactive explainer on momentum.', username: 'bob_learn', initials: 'BL', upvotes: 5 },
+        ] },
+    ],
+  }
+
+  // ── CNNs / Convolutional Networks ─────────────────────────────────────────
+  if (/cnn|convol|pooling|filter|feature.map|resnet|vgg|inception/.test(t)) return {
+    general: [
+      { text: 'The filter visualisations in this weave are excellent — you can actually see how early layers detect edges and later layers detect complex shapes.', username: 'carol_ai', initials: 'CJ', upvotes: 5,
+        replies: [{ text: 'DeepDream showed this so vividly — the network drawing dog faces everywhere because it learned that pattern.', username: 'alice_dev', initials: 'AK', upvotes: 3 }] },
+      { text: 'Just implemented a CNN from scratch using only NumPy. The backward pass for the convolutional layer is humbling.', username: 'marcus_r', initials: 'MR', upvotes: 4, replies: [] },
+    ],
+    suggestions: [
+      { text: 'The pooling node should cover global average pooling separately — it\'s critical for modern architectures like ResNet and MobileNet but often glossed over.', username: 'sara_p', initials: 'SP', upvotes: 6,
+        replies: [{ text: 'Seconded. GAP vs max pooling is a design choice with real implications for parameter count.', username: 'carol_ai', initials: 'CJ', upvotes: 4 }] },
+      { text: 'Would be great to add a node on depthwise separable convolutions — they\'re the backbone of MobileNet and worth their own explanation.', username: 'bob_learn', initials: 'BL', upvotes: 3, replies: [] },
+    ],
+    deepDives: [
+      { text: 'The receptive field growth across layers is under-discussed. In a 3-layer net with 3×3 filters the receptive field is only 7×7 — you need many layers or dilated convolutions to see large-scale patterns.', username: 'alice_dev', initials: 'AK', upvotes: 8,
+        replies: [
+          { text: 'This is exactly why ResNet-50 has 50 layers — building up receptive field while keeping compute manageable via 1×1 bottlenecks.', username: 'marcus_r', initials: 'MR', upvotes: 5 },
+          { text: 'Dilated/atrous convolutions are the elegant fix for this — same filter, exponentially larger receptive field.', username: 'carol_ai', initials: 'CJ', upvotes: 3 },
+        ] },
+    ],
+    help: [
+      { text: 'Why do we use padding in convolutional layers? Does it always need to be zero-padding?', username: 'theo_w', initials: 'TW', upvotes: 7, rep: '140',
+        replies: [{ text: 'Padding preserves spatial dimensions so feature maps don\'t shrink after every layer. Zero-padding is simplest but reflect/replicate padding can reduce border artefacts for some tasks.', username: 'alice_dev', initials: 'AK', upvotes: 6 }] },
+      { text: 'What is the difference between valid and same padding?', username: 'ravi_k', initials: 'RK', upvotes: 4, rep: '85',
+        replies: [{ text: '\'Valid\' means no padding — output shrinks. \'Same\' pads so the output matches the input size. In practice \'same\' is almost always what you want during feature extraction.', username: 'carol_ai', initials: 'CJ', upvotes: 3 }] },
+    ],
+    theory: [
+      { text: 'Why does weight sharing in CNNs work so well? Aren\'t we losing expressivity by using the same filter everywhere?', username: 'sara_p', initials: 'SP', upvotes: 10, rep: '380',
+        replies: [
+          { text: 'Weight sharing enforces translation equivariance — a dog in the top-left should activate the same filters as a dog in the bottom-right. This inductive bias is a massive regulariser.', username: 'carol_ai', initials: 'CJ', upvotes: 8 },
+          { text: 'The parameter count drops from O(n²) to O(k²) where k is the filter size. For a 224×224 image that\'s orders of magnitude fewer parameters.', username: 'marcus_r', initials: 'MR', upvotes: 4 },
+        ] },
+    ],
+    resources: [
+      { text: 'Best resources for really understanding CNN internals — not just how to use them?', username: 'bob_learn', initials: 'BL', upvotes: 7, rep: '160',
+        replies: [
+          { text: 'cs231n (Stanford) is the gold standard — lecture 5 on CNNs is exceptional. The notes are freely available.', username: 'alice_dev', initials: 'AK', upvotes: 9 },
+          { text: 'Zeiler & Fergus 2014 "Visualising and Understanding CNNs" is the original paper on filter visualisation — surprisingly readable.', username: 'marcus_r', initials: 'MR', upvotes: 5 },
+        ] },
+    ],
+  }
+
+  // ── Transformers / Attention ───────────────────────────────────────────────
+  if (/transformer|attention|self.attention|bert|gpt|llm|language.model|token|embed/.test(t)) return {
+    general: [
+      { text: 'The "Attention is All You Need" paper is dense but this weave\'s breakdown of Q, K, V finally made it click. The analogy to a search engine index is spot on.', username: 'alice_dev', initials: 'AK', upvotes: 6,
+        replies: [{ text: 'The scaled dot-product part confused me until I realised the scaling by √d_k prevents softmax from saturating in high dimensions.', username: 'bob_learn', initials: 'BL', upvotes: 4 }] },
+      { text: 'Positional encodings are one of those things that seem arbitrary until you dig into the sinusoidal pattern — it\'s actually elegant.', username: 'carol_ai', initials: 'CJ', upvotes: 3, replies: [] },
+    ],
+    suggestions: [
+      { text: 'Would love a dedicated node on RoPE (Rotary Position Embeddings) — modern LLMs use it instead of learned positional encodings and the reasoning is non-obvious.', username: 'marcus_r', initials: 'MR', upvotes: 7,
+        replies: [{ text: 'Yes! And ALiBi too — the linear attention bias approach is really different conceptually.', username: 'sara_p', initials: 'SP', upvotes: 3 }] },
+      { text: 'A comparison node for encoder-only (BERT) vs decoder-only (GPT) vs encoder-decoder (T5) would help a lot of learners.', username: 'bob_learn', initials: 'BL', upvotes: 5, replies: [] },
+    ],
+    deepDives: [
+      { text: 'Multi-head attention is doing something subtle — each head can specialise in different relationship types (syntactic, semantic, positional). Probing experiments show this empirically.', username: 'carol_ai', initials: 'CJ', upvotes: 9,
+        replies: [
+          { text: 'Clark et al. 2019 "What Does BERT Look At?" is fascinating on this — some heads clearly track coreference, others track syntax.', username: 'alice_dev', initials: 'AK', upvotes: 6 },
+          { text: 'Attention head pruning experiments also show many heads are redundant after training — yet having them during training seems to help.', username: 'marcus_r', initials: 'MR', upvotes: 3 },
+        ] },
+    ],
+    help: [
+      { text: 'What is the difference between self-attention and cross-attention? When is each used?', username: 'theo_w', initials: 'TW', upvotes: 11, rep: '420',
+        replies: [{ text: 'Self-attention: Q, K, V all from the same sequence — used in both encoder and decoder to model internal relationships. Cross-attention: Q from decoder, K and V from encoder — how the decoder "looks at" the input.', username: 'alice_dev', initials: 'AK', upvotes: 8 }] },
+      { text: 'Why is the transformer\'s attention O(n²) in sequence length and why does that matter?', username: 'ravi_k', initials: 'RK', upvotes: 6, rep: '110',
+        replies: [{ text: 'Every token attends to every other token — n tokens × n tokens = n² operations. At 4k tokens that\'s 16M; at 100k tokens it\'s 10B. This is why long-context is expensive and why sparse/linear attention variants exist.', username: 'carol_ai', initials: 'CJ', upvotes: 5 }] },
+    ],
+    theory: [
+      { text: 'Is there a theoretical reason why transformers outperform RNNs, or is it purely empirical?', username: 'sara_p', initials: 'SP', upvotes: 10, rep: '340',
+        replies: [
+          { text: 'Partly theoretical — direct paths between any two positions means no vanishing gradient over long distances. RNNs have O(n) gradient path length; transformers have O(1). But training scale also plays a huge role.', username: 'carol_ai', initials: 'CJ', upvotes: 7 },
+          { text: 'Universal approximation results for transformers also give them strong theoretical backing — Yun et al. 2019 showed they can approximate any sequence-to-sequence function.', username: 'marcus_r', initials: 'MR', upvotes: 4 },
+        ] },
+    ],
+    resources: [
+      { text: 'What\'s the best way to build intuition for transformers before reading the original paper?', username: 'bob_learn', initials: 'BL', upvotes: 8, rep: '175',
+        replies: [
+          { text: 'Jay Alammar\'s "The Illustrated Transformer" is the best entry point — bar none. Extremely visual.', username: 'alice_dev', initials: 'AK', upvotes: 10 },
+          { text: 'Andrej Karpathy\'s "nanoGPT" walkthrough on YouTube — building one from scratch is the fastest way to really understand it.', username: 'carol_ai', initials: 'CJ', upvotes: 7 },
+        ] },
+    ],
+  }
+
+  // ── Backpropagation / Neural Networks ─────────────────────────────────────
+  if (/backprop|neural.net|activation|relu|sigmoid|layer|deep.learn|mlp|perceptron/.test(t)) return {
+    general: [
+      { text: 'The chain rule explanation in this weave is the clearest I\'ve seen. Most textbooks skip the intuition and go straight to notation.', username: 'alice_dev', initials: 'AK', upvotes: 4,
+        replies: [{ text: 'The computation graph approach makes the backward pass much less intimidating.', username: 'bob_learn', initials: 'BL', upvotes: 2 }] },
+      { text: 'ReLU killed the vanishing gradient problem but introduced dying ReLU — worth noting both sides in the activation function comparison.', username: 'carol_ai', initials: 'CJ', upvotes: 3, replies: [] },
+    ],
+    suggestions: [
+      { text: 'A node on batch normalisation vs layer normalisation vs group normalisation would be really valuable — they have very different use cases.', username: 'marcus_r', initials: 'MR', upvotes: 6,
+        replies: [{ text: 'Yes! And the "why BatchNorm works" debate (smoothing loss landscape vs covariate shift) would make a great deep dive.', username: 'carol_ai', initials: 'CJ', upvotes: 4 }] },
+      { text: 'Dropout is described but the "ensemble interpretation" isn\'t mentioned — it\'s a really elegant way to think about why it works.', username: 'sara_p', initials: 'SP', upvotes: 3, replies: [] },
+    ],
+    deepDives: [
+      { text: 'The vanishing gradient problem is much worse than the exploding gradient problem in practice because you can clip gradients, but you can\'t easily amplify vanishing ones.', username: 'carol_ai', initials: 'CJ', upvotes: 7,
+        replies: [
+          { text: 'Highway networks were an early attempt to fix this before skip connections. Interesting piece of history.', username: 'alice_dev', initials: 'AK', upvotes: 4 },
+          { text: 'LSTM gates are essentially a learned solution to this — the forget/input gates act as gradient highways.', username: 'marcus_r', initials: 'MR', upvotes: 3 },
+        ] },
+    ],
+    help: [
+      { text: 'Why does backprop struggle with vanishing gradients in deep nets?', username: 'theo_w', initials: 'TW', upvotes: 9, rep: '310',
+        replies: [{ text: 'Sigmoid/tanh saturate — derivative near 0/1 is nearly zero. Multiply many of those across layers and the gradient disappears. ReLU fixes this: derivative is exactly 1 for positive inputs.', username: 'carol_ai', initials: 'CJ', upvotes: 7 }] },
+      { text: 'What does it mean for a weight initialisation to be "bad"? Why does Xavier/He init matter?', username: 'ravi_k', initials: 'RK', upvotes: 5, rep: '100',
+        replies: [{ text: 'Bad init → activations either saturate (all zeros after ReLU) or explode (activations blow up). Xavier keeps variance constant through layers for tanh; He init does the same for ReLU.', username: 'alice_dev', initials: 'AK', upvotes: 5 }] },
+    ],
+    theory: [
+      { text: 'Is the universal approximation theorem actually useful in practice? It says a 1-hidden-layer network can approximate any function — but the required width could be exponential.', username: 'sara_p', initials: 'SP', upvotes: 8, rep: '290',
+        replies: [
+          { text: 'UAT is more of a existence proof than a practical guide. Depth is much more parameter-efficient than width for most function classes — this is the depth-width trade-off literature.', username: 'carol_ai', initials: 'CJ', upvotes: 6 },
+          { text: 'Montufar et al. 2014 formalised why depth exponentially increases expressivity — each layer can "fold" the input space.', username: 'marcus_r', initials: 'MR', upvotes: 3 },
+        ] },
+    ],
+    resources: [
+      { text: 'Best resources for deeply understanding backpropagation, not just running it?', username: 'bob_learn', initials: 'BL', upvotes: 6, rep: '150',
+        replies: [
+          { text: 'Karpathy\'s micrograd — a 100-line autograd engine. Building one yourself is the only way to truly understand it.', username: 'alice_dev', initials: 'AK', upvotes: 9 },
+          { text: 'Nielsen\'s "Neural Networks and Deep Learning" (free online) — chapter 2 is the best written backprop explanation I know.', username: 'carol_ai', initials: 'CJ', upvotes: 6 },
+        ] },
+    ],
+  }
+
+  // ── Generic ML fallback ────────────────────────────────────────────────────
+  return {
+    general: [
+      { text: `Welcome to the ${topic} community! Feel free to share insights, ask questions, and discuss what you're learning.`, username: 'alice_dev', initials: 'AK', upvotes: 3,
+        replies: [{ text: 'Great to be here. Looking forward to learning together.', username: 'bob_learn', initials: 'BL', upvotes: 1 }] },
+      { text: `Just finished the first few nodes on ${topic}. The scaffolding here is really well structured.`, username: 'carol_ai', initials: 'CJ', upvotes: 2, replies: [] },
+    ],
+    suggestions: [
+      { text: `More worked examples in the ${topic} nodes would be great — theory is solid but practice problems would help.`, username: 'marcus_r', initials: 'MR', upvotes: 4,
+        replies: [{ text: 'Agreed — interactive exercises would be ideal.', username: 'sara_p', initials: 'SP', upvotes: 2 }] },
+      { text: 'A prerequisite map at the start of the weave would help learners know what to study first.', username: 'bob_learn', initials: 'BL', upvotes: 3, replies: [] },
+    ],
+    deepDives: [
+      { text: `What aspects of ${topic} do you think are most under-explained in standard resources? Happy to start a collaborative node.`, username: 'carol_ai', initials: 'CJ', upvotes: 5,
+        replies: [
+          { text: 'The gap between theory and implementation is usually the biggest — pseudocode would help.', username: 'alice_dev', initials: 'AK', upvotes: 3 },
+          { text: 'Historical context is often missing — knowing why something was invented helps a lot.', username: 'marcus_r', initials: 'MR', upvotes: 2 },
+        ] },
+    ],
+    help: [
+      { text: `What is the best way to get started with ${topic} if you have a solid maths background but limited ML experience?`, username: 'theo_w', initials: 'TW', upvotes: 7, rep: '200',
+        replies: [{ text: 'Work through the weave nodes in order, then implement each concept in Python from scratch. Nothing beats building it yourself.', username: 'alice_dev', initials: 'AK', upvotes: 5 }] },
+      { text: `Are there common misconceptions about ${topic} that trip up beginners?`, username: 'ravi_k', initials: 'RK', upvotes: 4, rep: '90',
+        replies: [{ text: 'Confusing the training objective with the evaluation metric is probably the most common one. They are often the same but not always.', username: 'carol_ai', initials: 'CJ', upvotes: 3 }] },
+    ],
+    theory: [
+      { text: `What is the theoretical justification for the key design choices in ${topic}?`, username: 'sara_p', initials: 'SP', upvotes: 6, rep: '250',
+        replies: [
+          { text: 'Many choices are empirically motivated first, then theoretically justified after. The field moves fast.', username: 'carol_ai', initials: 'CJ', upvotes: 4 },
+          { text: 'Ablation studies in the original papers usually tell you what the authors thought mattered.', username: 'marcus_r', initials: 'MR', upvotes: 2 },
+        ] },
+    ],
+    resources: [
+      { text: `What are the best papers and courses to go deep on ${topic}?`, username: 'bob_learn', initials: 'BL', upvotes: 5, rep: '170',
+        replies: [
+          { text: 'Find the 2–3 most-cited papers in the area and read them carefully. Then trace their citations backwards.', username: 'alice_dev', initials: 'AK', upvotes: 6 },
+          { text: 'Andrej Karpathy\'s lectures and Yannic Kilcher\'s paper walkthroughs on YouTube are excellent for ML broadly.', username: 'carol_ai', initials: 'CJ', upvotes: 4 },
+        ] },
+    ],
+  }
+}
+
+// Seed factory — called with weaveId + optional topic name per weave
+function makeSeedChannels(topic = 'this topic'): Channel[] {
   const now = Date.now()
-  const t = (minsAgo: number) => now - minsAgo * 60_000
+  const t   = (minsAgo: number) => now - minsAgo * 60_000
+  const seed = getTopicSeed(topic)
+
+  function buildMsg(
+    id: string,
+    minsAgo: number,
+    d: { text: string; username: string; initials: string; upvotes: number; rep?: string; replies?: { text: string; username: string; initials: string; upvotes: number }[] },
+    isQuestion = false,
+  ): Message {
+    return {
+      id,
+      initials: d.initials,
+      username: d.username,
+      timestamp: minsAgo < 60 ? `${minsAgo}m ago` : minsAgo < 1440 ? `${Math.round(minsAgo / 60)}h ago` : `${Math.round(minsAgo / 1440)}d ago`,
+      createdAt: t(minsAgo),
+      unread: minsAgo < 15,
+      text: d.text,
+      replies: (d.replies ?? []).map((r, ri) => ({
+        id: `${id}-r${ri}`,
+        initials: r.initials,
+        username: r.username,
+        timestamp: `${Math.max(1, minsAgo - 3 - ri * 2)}m ago`,
+        createdAt: t(Math.max(1, minsAgo - 3 - ri * 2)),
+        text: r.text,
+        upvotes: r.upvotes,
+      })),
+      upvotes: d.upvotes,
+      rep: d.rep,
+      isQuestion,
+    }
+  }
+
   return [
     {
       id: 'general', name: 'general', category: 'DISCUSSIONS', isQuery: false,
-      messages: [
-        {
-          id: 'gen-1', initials: 'AK', username: 'alice_dev',
-          timestamp: '2m ago', createdAt: t(2), unread: true,
-          text: 'Really helpful breakdown on gradient descent — the visualisation analogy clicked for me.',
-          replies: [
-            { id: 'gen-1-r1', initials: 'BL', username: 'bob_learn', timestamp: '1m ago', createdAt: t(1), text: 'Agreed! The ball rolling down a slope metaphor is great.', upvotes: 2 },
-          ],
-          upvotes: 3,
-        },
-        {
-          id: 'gen-2', initials: 'BL', username: 'bob_learn',
-          timestamp: '14m ago', createdAt: t(14), unread: false,
-          text: 'Anyone else notice the weave for "Calculus" is missing a node on partial derivatives?',
-          replies: [], upvotes: 1,
-        },
-      ],
+      messages: seed.general.map((d, i) => buildMsg(`gen-${i}`, 5 + i * 12, d)),
     },
     {
       id: 'suggestions', name: 'suggestions', category: 'DISCUSSIONS', isQuery: false,
-      messages: [
-        {
-          id: 'sug-1', initials: 'BL', username: 'bob_learn',
-          timestamp: '14m ago', createdAt: t(14), unread: true,
-          text: 'Should we add a node on Learning Rate Schedulers? Feels like a gap between GD and backprop.',
-          replies: [
-            { id: 'sug-1-r1', initials: 'CJ', username: 'carol_ai', timestamp: '10m ago', createdAt: t(10), text: 'Seconded. Cosine annealing and step decay are both worth covering.', upvotes: 3 },
-            { id: 'sug-1-r2', initials: 'AK', username: 'alice_dev', timestamp: '8m ago', createdAt: t(8), text: 'I can scaffold that node if an admin approves it.', upvotes: 1 },
-          ],
-          upvotes: 5,
-        },
-        {
-          id: 'sug-2', initials: 'CJ', username: 'carol_ai',
-          timestamp: '45m ago', createdAt: t(45), unread: false,
-          text: 'Dark mode toggle for node detail pages would be nice.',
-          replies: [], upvotes: 2,
-        },
-      ],
+      messages: seed.suggestions.map((d, i) => buildMsg(`sug-${i}`, 18 + i * 25, d)),
     },
     {
       id: 'deep-dives', name: 'deep-dives', category: 'DISCUSSIONS', isQuery: false,
-      messages: [
-        {
-          id: 'dd-1', initials: 'CJ', username: 'carol_ai',
-          timestamp: '1h ago', createdAt: t(60), unread: true,
-          text: 'The CNNs node needs more depth on pooling layers. Anyone want to co-author an update?',
-          replies: [
-            { id: 'dd-1-r1', initials: 'MR', username: 'marcus_r', timestamp: '55m ago', createdAt: t(55), text: 'I wrote my thesis on this — happy to contribute. DM me.', upvotes: 4 },
-            { id: 'dd-1-r2', initials: 'SP', username: 'sara_p', timestamp: '50m ago', createdAt: t(50), text: 'Global average pooling vs max pooling would be a great comparison.', upvotes: 2 },
-          ],
-          upvotes: 7,
-        },
-      ],
+      messages: seed.deepDives.map((d, i) => buildMsg(`dd-${i}`, 65 + i * 40, d)),
     },
     {
       id: 'help', name: 'help', category: 'QUERIES', isQuery: true,
-      messages: [
-        {
-          id: 'help-1', initials: 'MR', username: 'marcus_r',
-          timestamp: '5m ago', createdAt: t(5), unread: true, isQuestion: true,
-          text: 'Is attention the same as self-attention? What is the difference?',
-          replies: [
-            { id: 'help-1-r1', initials: 'AK', username: 'alice_dev', timestamp: '3m ago', createdAt: t(3), text: 'Self-attention is a special case where Q, K, V all come from the same sequence. Attention is more general — Q can come from a different sequence (cross-attention).', upvotes: 6 },
-          ],
-          upvotes: 12, rep: '420',
-        },
-        {
-          id: 'help-2', initials: 'TW', username: 'theo_w',
-          timestamp: '2h ago', createdAt: t(120), unread: false, isQuestion: true,
-          text: 'How do I contribute to a scaffold node that already has a description?',
-          replies: [], upvotes: 4, rep: '120',
-        },
-      ],
+      messages: seed.help.map((d, i) => buildMsg(`help-${i}`, 8 + i * 18, d, true)),
     },
     {
       id: 'theory', name: 'theory', category: 'QUERIES', isQuery: true,
-      messages: [
-        {
-          id: 'theory-1', initials: 'SP', username: 'sara_p',
-          timestamp: '22m ago', createdAt: t(22), unread: false, isQuestion: true,
-          text: 'Why does backprop struggle with vanishing gradients in deep nets?',
-          replies: [
-            { id: 'theory-1-r1', initials: 'CJ', username: 'carol_ai', timestamp: '18m ago', createdAt: t(18), text: 'Sigmoid saturates near 0/1, its derivative is near 0 there. Multiply many of those across layers and the gradient vanishes.', upvotes: 5 },
-            { id: 'theory-1-r2', initials: 'BL', username: 'bob_learn', timestamp: '15m ago', createdAt: t(15), text: 'ReLU was a big fix for this — derivative is exactly 1 for positive inputs, no saturation.', upvotes: 3 },
-          ],
-          upvotes: 8, rep: '310',
-        },
-      ],
+      messages: seed.theory.map((d, i) => buildMsg(`theory-${i}`, 25 + i * 35, d, true)),
     },
     {
       id: 'resources', name: 'resources', category: 'QUERIES', isQuery: true,
-      messages: [
-        {
-          id: 'res-1', initials: 'TW', username: 'theo_w',
-          timestamp: '3h ago', createdAt: t(180), unread: false, isQuestion: true,
-          text: 'What are good resources for understanding the maths behind CNNs?',
-          replies: [
-            { id: 'res-1-r1', initials: 'MR', username: 'marcus_r', timestamp: '2h ago', createdAt: t(120), text: 'cs231n lecture notes (Stanford) are the gold standard. Chapter 9 of Deep Learning by Goodfellow is also excellent.', upvotes: 7 },
-            { id: 'res-1-r2', initials: 'SP', username: 'sara_p', timestamp: '90m ago', createdAt: t(90), text: '3Blue1Brown has a great visual series on convolutions.', upvotes: 4 },
-          ],
-          upvotes: 3, rep: '195',
-        },
-      ],
+      messages: seed.resources.map((d, i) => buildMsg(`res-${i}`, 90 + i * 60, d, true)),
     },
   ]
 }
@@ -288,11 +456,11 @@ function lsKeys(weaveId: string) {
   }
 }
 
-function loadChannels(weaveId: string): Channel[] {
-  if (typeof window === 'undefined') return makeSeedChannels()
+function loadChannels(weaveId: string, topic = 'this topic'): Channel[] {
+  if (typeof window === 'undefined') return makeSeedChannels(topic)
   try {
     const raw = localStorage.getItem(lsKeys(weaveId).channels)
-    if (!raw) return makeSeedChannels()
+    if (!raw) return makeSeedChannels(topic)
     const parsed = JSON.parse(raw) as Channel[]
     // Back-fill createdAt for any stored messages that predate the field
     return parsed.map(ch => ({
@@ -303,7 +471,7 @@ function loadChannels(weaveId: string): Channel[] {
         replies: m.replies.map(r => ({ ...r, createdAt: r.createdAt ?? Date.now() })),
       })),
     }))
-  } catch { return makeSeedChannels() }
+  } catch { return makeSeedChannels(topic) }
 }
 
 function loadSet(key: string): Set<string> {
@@ -335,7 +503,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
   // keys is stable per weaveId — memoised so effects deps don't fire on every render
   const keys = useMemo(() => lsKeys(weaveId), [weaveId])
 
-  const [channels, setChannels] = useState<Channel[]>(() => loadChannels(weaveId))
+  const [channels, setChannels] = useState<Channel[]>(() => loadChannels(weaveId, weaveName))
   const [activeChannelId, setActiveChannelId] = useState<string>(() => {
     if (typeof window === 'undefined') return 'general'
     return localStorage.getItem(keys.active) ?? 'general'
@@ -345,7 +513,8 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
   const [msgInput, setMsgInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
-  const [sortMode, setSortMode] = useState<'top' | 'new' | 'hot'>('top')
+  // sortMode — per-channel map; derivation is below activeChannel
+  const [sortModes, setSortModes] = useState<Record<string, 'top' | 'new' | 'hot'>>({}) 
   const [votedIds, setVotedIds] = useState<Set<string>>(() => loadSet(keys.voted))
   const [replyVotedIds, setReplyVotedIds] = useState<Set<string>>(() => loadSet(keys.replyVoted))
   // expanded reply threads: set of message ids
@@ -371,6 +540,20 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)   // null = closed
   const [mentionIndex, setMentionIndex] = useState(0)
   const [mentionAnchor, setMentionAnchor] = useState<'main' | 'reply' | 'modal'>('main')
+
+  // ── Slash command state ───────────────────────────────────────────────────
+  const [slashOpen, setSlashOpen] = useState(false)
+  const [slashAnchor, setSlashAnchor] = useState<'main' | 'reply' | 'modal'>('main')
+
+  // Only one command for now; easy to extend later
+  const SLASH_COMMANDS = [
+    {
+      cmd: '/query',
+      label: '/query',
+      desc: 'Escalate this message as a question to the Q&A section',
+      icon: '🔀',
+    },
+  ]
   const mentionResults = mentionQuery !== null
     ? KNOWN_USERS.filter(u =>
         u.username.toLowerCase().startsWith(mentionQuery.toLowerCase()) &&
@@ -401,6 +584,10 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
 
   const activeChannel = channels.find(c => c.id === activeChannelId)!
 
+  // Derived here (after activeChannel) to avoid temporal dead zone
+  const sortMode = (activeChannel?.isQuery ? sortModes[activeChannelId] ?? 'top' : 'new') as 'top' | 'new' | 'hot'
+  const setSortMode = (mode: 'top' | 'new' | 'hot') => setSortModes(prev => ({ ...prev, [activeChannelId]: mode }))
+
   const discussionChannels = channels.filter(c => c.category === 'DISCUSSIONS')
   const queryChannels = channels.filter(c => c.category === 'QUERIES')
 
@@ -416,14 +603,19 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
 
   function scoreMessage(m: Message): number {
     if (m.pendingSend) return -Infinity
-    const rep    = parseFloat(m.rep ?? '0') || 0
-    const decay  = ageMinutes(m) / 60          // hours old
-    return m.upvotes * 2 + rep * 0.01 + m.replies.length * 1.5 - decay
+    const rep      = parseFloat(m.rep ?? '0') || 0
+    const ageHours = ageMinutes(m) / 60
+    // Decay is capped so a 0-upvote post never beats a post with even 1 upvote
+    const decay = Math.min(ageHours * 0.05, 0.9)
+    return m.upvotes * 10 + rep * 0.02 + m.replies.length * 2 - decay
   }
 
   function hotScore(m: Message): number {
     if (m.pendingSend) return -Infinity
-    return m.upvotes * 3 + m.replies.length - ageMinutes(m) * 0.05
+    const ageHours = ageMinutes(m) / 60
+    // Recency bonus (0-2 pts) never overrides upvotes (10 pts each)
+    const recencyBonus = Math.max(0, 1 - ageHours / 24) * 2
+    return m.upvotes * 10 + m.replies.length * 2 + recencyBonus
   }
 
   const baseMessages = searchQuery.trim()
@@ -437,12 +629,12 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     // Pending (own unsent) posts always pin to bottom regardless of mode
     if (a.pendingSend && !b.pendingSend) return 1
     if (!a.pendingSend && b.pendingSend) return -1
-    if (sortMode === 'new') {
-      // newest first: higher createdAt = smaller index
-      return (b.createdAt ?? 0) - (a.createdAt ?? 0)
-    }
+    // Discussions: always newest-first, no sort toggle
+    if (!activeChannel.isQuery) return (b.createdAt ?? 0) - (a.createdAt ?? 0)
+    // Query channels: use sortMode
+    if (sortMode === 'new') return (b.createdAt ?? 0) - (a.createdAt ?? 0)
     if (sortMode === 'hot') return hotScore(b) - hotScore(a)
-    return scoreMessage(b) - scoreMessage(a)   // 'top' default
+    return scoreMessage(b) - scoreMessage(a)
   })
 
   // ── Effects ──────────────────────────────────────────────────────────────
@@ -463,7 +655,10 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     setMsgInput('')
   }, [activeChannelId])
 
-  // Simulate an inbound message every 25-35s in a random channel
+  // Simulate an inbound message every 45-75s (once per session, no re-registration on nav)
+  const activeChannelIdRef = useRef(activeChannelId)
+  useEffect(() => { activeChannelIdRef.current = activeChannelId }, [activeChannelId])
+
   useEffect(() => {
     const GHOST: { channelId: string; text: string; initials: string; username: string; isQuestion?: boolean }[] = [
       { channelId: 'general', initials: 'EL', username: 'elena_ml', text: 'Just filled the Backpropagation scaffold — check it out!' },
@@ -471,26 +666,34 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
       { channelId: 'theory', initials: 'PR', username: 'priya_cs', text: 'What is the difference between batch and layer normalization?', isQuestion: true },
       { channelId: 'help', initials: 'RK', username: 'ravi_k', text: 'Can scaffold nodes have multiple contributors?', isQuestion: true },
     ]
-    const id = setInterval(() => {
-      const g = GHOST[Math.floor(Math.random() * GHOST.length)]
+    // Shuffle so each session gets a different order, preventing same ghost every time
+    const shuffled = [...GHOST].sort(() => Math.random() - 0.5)
+    let idx = 0
+    const fire = () => {
+      const g = shuffled[idx % shuffled.length]
+      idx++
       const newMsg: Message = {
         id: genId(),
         initials: g.initials,
         username: g.username,
         timestamp: 'just now',
         createdAt: Date.now(),
-        unread: g.channelId !== activeChannelId,
+        unread: g.channelId !== activeChannelIdRef.current,
         text: g.text,
         replies: [],
         upvotes: 0,
         isQuestion: g.isQuestion,
       }
-      setChannels(prev => prev.map(ch =>
-        ch.id === g.channelId ? { ...ch, messages: [...ch.messages, newMsg] } : ch
-      ))
-    }, 25000 + Math.random() * 10000)
+      setChannels(prev => {
+        const ch = prev.find(c => c.id === g.channelId)
+        // Deduplicate: skip if this ghost text already exists in the channel
+        if (ch?.messages.some(m => m.text === g.text)) return prev
+        return prev.map(c => c.id === g.channelId ? { ...c, messages: [...c.messages, newMsg] } : c)
+      })
+    }
+    const id = setInterval(fire, 45000 + Math.random() * 30000)
     return () => clearInterval(id)
-  }, [activeChannelId])
+  }, [])  // empty deps — fires once, uses ref for activeChannelId
 
   // ── Persistence ──────────────────────────────────────────────────────────
 
@@ -508,10 +711,13 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
 
 
 
-  // When weaveId prop changes (user opens a different weave), reload all state
+  // When weaveId prop changes (user opens a different weave), reload all state.
+  // Skip on first mount — useState lazy initialisers already loaded the right data.
+  const isFirstMount = useRef(true)
   useEffect(() => {
+    if (isFirstMount.current) { isFirstMount.current = false; return }
     const k = lsKeys(weaveId)
-    setChannels(loadChannels(weaveId))
+    setChannels(loadChannels(weaveId, weaveName))
     setActiveChannelId(
       (typeof window !== 'undefined' ? localStorage.getItem(k.active) : null) ?? 'general'
     )
@@ -522,7 +728,8 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     setMsgInput('')
     setSearchQuery('')
     setShowSearch(false)
-    setSortMode('top')
+    setSortModes({})
+    clearMedia('main'); clearMedia('reply'); clearMedia('modal')
   }, [weaveId])
 
   const switchChannel = useCallback((id: string) => {
@@ -625,12 +832,16 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
   }, [activeChannelId])
 
   const handleSend = useCallback(async () => {
-    const text = msgInput.trim()
+    const raw = msgInput.trim()
     const surface = replyingTo ? 'reply' : 'main'
     const images  = surface === 'reply' ? replyImages : mainImages
     const preview = surface === 'reply' ? replyPreview : mainPreview
-    if (!text && images.length === 0) return
+    if (!raw && images.length === 0) return
     if (!activeChannel) return
+
+    // /query prefix: strip it, auto-escalate to first query channel
+    const isQueryCommand = !replyingTo && /^\/query\s*/i.test(raw)
+    const text = raw.replace(/^\/query\s*/i, '').trim() || raw
 
     setSending(true)
     setMsgInput('')
@@ -663,6 +874,12 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
       earn(2)
       toast.success('Reply posted!', { style: { borderLeft: '3px solid #22C55E' } })
     } else {
+      // /query: post into the first query channel (help), switch to it
+      const targetChannelId = isQueryCommand
+        ? (channels.find(c => c.isQuery)?.id ?? activeChannelId)
+        : activeChannelId
+      const targetChannel = channels.find(c => c.id === targetChannelId) ?? activeChannel
+
       const newMsg: Message = {
         id: genId(),
         initials: 'D',
@@ -675,16 +892,20 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
         upvotes: 0,
         isOwn: true,
         pendingSend: true,
-        isQuestion: activeChannel.isQuery,
+        isQuestion: isQueryCommand || targetChannel.isQuery,
         images: images.length > 0 ? images : undefined,
         linkPreview: preview ?? undefined,
       }
       setChannels(prev => prev.map(ch =>
-        ch.id !== activeChannelId ? ch : { ...ch, messages: [...ch.messages, newMsg] }
+        ch.id !== targetChannelId ? ch : { ...ch, messages: [...ch.messages, newMsg] }
       ))
+      if (isQueryCommand) {
+        setActiveChannelId(targetChannelId)
+        toast('🔀 Escalated to #' + targetChannel.name, { style: { borderLeft: '3px solid #6366f1' } })
+      }
       await new Promise(r => setTimeout(r, 600))
       setChannels(prev => prev.map(ch =>
-        ch.id !== activeChannelId ? ch : {
+        ch.id !== targetChannelId ? ch : {
           ...ch,
           messages: ch.messages.map(m =>
             m.id === newMsg.id ? { ...m, pendingSend: false } : m
@@ -692,12 +913,15 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
         }
       ))
       setSending(false)
-      earn(activeChannel.isQuery ? 5 : 2)
-      toast.success(activeChannel.isQuery ? 'Question posted! +5 LM' : 'Message sent!', {
-        style: { borderLeft: '3px solid #22C55E' },
-      })
+      earn(isQueryCommand || targetChannel.isQuery ? 5 : 2)
+      toast.success(
+        isQueryCommand ? 'Question escalated to #' + targetChannel.name + '! +5 LM'
+          : targetChannel.isQuery ? 'Question posted! +5 LM'
+          : 'Message sent!',
+        { style: { borderLeft: '3px solid #22C55E' } }
+      )
     }
-  }, [msgInput, replyingTo, activeChannel, activeChannelId, earn, mainImages, replyImages, mainPreview, replyPreview])
+  }, [msgInput, replyingTo, activeChannel, activeChannelId, channels, earn, mainImages, replyImages, mainPreview, replyPreview])
 
   const handleNewPost = useCallback(async () => {
     const text = newPostText.trim()
@@ -742,7 +966,37 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     toast.success(`Posted to #${targetChannel.name}!`, { style: { borderLeft: '3px solid #22C55E' } })
   }, [newPostText, newPostType, newPostChannelId, channels, earn, modalImages, modalPreview])
 
+  // Promote a discussion message to the first available query channel
+  const handlePromoteToQuery = useCallback((msgId: string) => {
+    const sourceChannel = channels.find(c => c.id === activeChannelId)
+    const targetChannel = channels.find(c => c.isQuery)
+    if (!sourceChannel || !targetChannel) return
+    const msg = sourceChannel.messages.find(m => m.id === msgId)
+    if (!msg) return
+
+    const promoted: Message = { ...msg, isQuestion: true, id: genId(), createdAt: Date.now(), pendingSend: false }
+
+    setChannels(prev => prev.map(ch => {
+      if (ch.id === activeChannelId) return { ...ch, messages: ch.messages.filter(m => m.id !== msgId) }
+      if (ch.id === targetChannel.id) return { ...ch, messages: [...ch.messages, promoted] }
+      return ch
+    }))
+    setActiveChannelId(targetChannel.id)
+    toast('🔀 Promoted to #' + targetChannel.name, { style: { borderLeft: '3px solid #6366f1' } })
+  }, [channels, activeChannelId])
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Slash command dropdown navigation
+    if (slashOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); return }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        pickSlashCommand(SLASH_COMMANDS[0].cmd, slashAnchor)
+        return
+      }
+      if (e.key === 'Escape') { setSlashOpen(false); return }
+    }
+    // Mention dropdown navigation
     if (mentionQuery !== null && mentionResults.length > 0) {
       if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => Math.min(i + 1, mentionResults.length - 1)); return }
       if (e.key === 'ArrowUp')   { e.preventDefault(); setMentionIndex(i => Math.max(i - 1, 0)); return }
@@ -766,6 +1020,16 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
   ) {
     setter(value)
     const cursor = inputEl?.selectionStart ?? value.length
+    // Slash command: show if value starts with / (and we're not in a reply)
+    if (anchor !== 'reply' && /^\/[a-z]*$/i.test(value.slice(0, cursor))) {
+      setSlashOpen(true)
+      setSlashAnchor(anchor)
+      setMentionQuery(null)
+      return
+    } else {
+      setSlashOpen(false)
+    }
+    // Mention detection
     const q = getMentionQuery(value, cursor)
     if (q !== null) {
       setMentionQuery(q)
@@ -774,6 +1038,18 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     } else {
       setMentionQuery(null)
     }
+  }
+
+  /** Insert /command into the right input, placing cursor after the command */
+  function pickSlashCommand(cmd: string, anchor: 'main' | 'reply' | 'modal') {
+    const ref    = anchor === 'modal' ? newPostTextareaRef.current : inputRef.current
+    const setter = anchor === 'modal' ? setNewPostText : setMsgInput
+    const text   = cmd + ' '
+    setter(text)
+    setSlashOpen(false)
+    requestAnimationFrame(() => {
+      if (ref) { ref.focus(); ref.setSelectionRange(text.length, text.length) }
+    })
   }
 
   /** Insert chosen username into the right input */
@@ -943,6 +1219,34 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     )
   }
 
+  // ── Slash command dropdown ───────────────────────────────────────────────
+
+  function CommandDropdown({ anchor }: { anchor: 'main' | 'reply' | 'modal' }) {
+    if (!slashOpen || slashAnchor !== anchor) return null
+    return (
+      <div className="absolute bottom-full mb-1.5 left-0 right-0 z-50 rounded-lg border border-indigo-500/30 bg-card shadow-xl overflow-hidden">
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40 bg-indigo-500/5">
+          <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-400">Commands</span>
+          <span className="text-[9px] text-muted-foreground ml-auto">Tab or Enter to select</span>
+        </div>
+        {SLASH_COMMANDS.map(c => (
+          <button
+            key={c.cmd}
+            onMouseDown={e => { e.preventDefault(); pickSlashCommand(c.cmd, anchor) }}
+            className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-indigo-500/10 transition-colors group"
+          >
+            <span className="text-base leading-none">{c.icon}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-indigo-400 group-hover:text-indigo-300">{c.label}</p>
+              <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">{c.desc}</p>
+            </div>
+            <kbd className="shrink-0 rounded border border-border px-1 py-0.5 text-[9px] text-muted-foreground font-mono">↵</kbd>
+          </button>
+        ))}
+      </div>
+    )
+  }
+
   // ── Sidebar channel row ───────────────────────────────────────────────────
 
   function ChannelRow({ ch }: { ch: Channel }) {
@@ -1050,6 +1354,18 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
                 {msg.upvotes > 0 && <span>{msg.upvotes}</span>}
                 {isHot && <Flame className="h-3 w-3 text-orange-400 ml-0.5" />}
               </button>
+
+              {/* Promote to query — only in discussion channels */}
+              {!activeChannel.isQuery && !msg.isQuestion && (
+                <button
+                  onClick={() => handlePromoteToQuery(msg.id)}
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-indigo-400 transition-colors"
+                  title="Escalate to Q&A"
+                >
+                  <ArrowUpRight className="h-3 w-3" />
+                  <span>Escalate</span>
+                </button>
+              )}
 
               {/* Delete — own posts only */}
               {msg.isOwn && (
@@ -1322,23 +1638,25 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
                 {activeChannel.isQuery ? '· Q&A' : '· Discussion'}
               </span>
               <div className="ml-auto flex items-center gap-2">
-                {/* Sort toggle */}
-                <div className="flex items-center rounded-md border border-border/50 overflow-hidden">
-                  {(['top', 'hot', 'new'] as const).map(mode => (
-                    <button
-                      key={mode}
-                      onClick={() => setSortMode(mode)}
-                      className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide transition-colors ${
-                        sortMode === mode
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                      title={mode === 'top' ? 'Top (score + rep)' : mode === 'hot' ? 'Hot (trending now)' : 'New (recent first)'}
-                    >
-                      {mode === 'hot' ? '🔥' : mode === 'top' ? '↑' : '🕐'}
-                    </button>
-                  ))}
-                </div>
+                {/* Sort toggle — queries only; discussions are always newest-first */}
+                {activeChannel.isQuery && (
+                  <div className="flex items-center rounded-md border border-border/50 overflow-hidden">
+                    {(['top', 'hot', 'new'] as const).map(mode => (
+                      <button
+                        key={mode}
+                        onClick={() => setSortMode(mode)}
+                        className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide transition-colors ${
+                          sortMode === mode
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                        title={mode === 'top' ? 'Top (score + rep)' : mode === 'hot' ? 'Hot (trending now)' : 'New (recent first)'}
+                      >
+                        {mode === 'hot' ? '🔥' : mode === 'top' ? '↑' : '🕐'}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <button
                   onClick={() => { setShowSearch(p => !p); if (showSearch) setSearchQuery('') }}
                   className={`transition-colors ${showSearch ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
@@ -1439,7 +1757,8 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
                 <ImagePreviewStrip images={mainImages} onRemove={i => removeImage(i, setMainImages)} />
                 {/* Link preview */}
                 <LinkPreviewCard preview={mainPreview} />
-                <div className="relative flex items-center gap-2 rounded-lg bg-secondary/50 border border-border/50 px-2 py-2 focus-within:border-primary/40 transition-colors mt-1">
+                <div className={`relative flex items-center gap-2 rounded-lg bg-secondary/50 border px-2 py-2 transition-colors mt-1 ${slashOpen && slashAnchor === 'main' ? 'border-indigo-500/60 bg-indigo-500/5' : 'border-border/50 focus-within:border-primary/40'}`}>
+                  <CommandDropdown anchor="main" />
                   <MentionDropdown anchor="main" />
                   {/* Attach button */}
                   <button
@@ -1452,12 +1771,12 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
                   <input
                     ref={inputRef}
                     type="text"
-                    placeholder={activeChannel.isQuery ? 'Ask a question… (@ or paste link)' : `Message #${activeChannel.name} (@ or paste link)`}
+                    placeholder={activeChannel.isQuery ? 'Ask a question… (@ or paste link)' : `Message #${activeChannel.name} — type /query to escalate`}
                     value={msgInput}
                     onChange={e => handleMediaMentionInput(e.target.value, setMsgInput, 'main', e.target, setMainPreview, 'main')}
                     onKeyDown={handleKeyDown}
                     disabled={sending}
-                    className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-60"
+                    className={`flex-1 bg-transparent text-xs placeholder:text-muted-foreground outline-none disabled:opacity-60 ${slashOpen && slashAnchor === 'main' ? 'text-indigo-400 font-medium' : 'text-foreground'}`}
                   />
                   {(msgInput.trim() || mainImages.length > 0) ? (
                     <button onClick={handleSend} disabled={sending} className="shrink-0 text-primary hover:text-primary/80 disabled:opacity-50">
@@ -1467,7 +1786,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
                     <Zap className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   )}
                 </div>
-                <p className="text-[9px] text-muted-foreground/50 mt-1 ml-1">Enter to send · 📎 attach image · @ to mention · paste a URL to preview</p>
+                <p className="text-[9px] text-muted-foreground/50 mt-1 ml-1">Enter to send · /query to escalate to Q&A · @ to mention · 📎 attach</p>
               </div>
             )}
           </>
@@ -1547,6 +1866,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
             />
 
             <div className="relative">
+              <CommandDropdown anchor="modal" />
               <MentionDropdown anchor="modal" />
               <textarea
                 ref={newPostTextareaRef}
@@ -1560,6 +1880,11 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
                 value={newPostText}
                 onChange={e => handleMediaMentionInput(e.target.value, setNewPostText, 'modal', e.target, setModalPreview, 'modal')}
                 onKeyDown={e => {
+                  if (slashOpen) {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); return }
+                    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickSlashCommand(SLASH_COMMANDS[0].cmd, 'modal'); return }
+                    if (e.key === 'Escape') { setSlashOpen(false); return }
+                  }
                   if (mentionQuery !== null && mentionResults.length > 0) {
                     if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => Math.min(i + 1, mentionResults.length - 1)); return }
                     if (e.key === 'ArrowUp')   { e.preventDefault(); setMentionIndex(i => Math.max(i - 1, 0)); return }
