@@ -249,7 +249,7 @@ export default function NodeDetailPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                   <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  Ollama is writing your explainer…
+                  Gemini is writing your explainer…
                 </div>
                 {[100, 90, 95, 80, 88, 75, 92].map((w, i) => (
                   <div key={i} className="h-3 bg-muted rounded animate-pulse" style={{ width: `${w}%`, animationDelay: `${i * 80}ms` }} />
@@ -257,7 +257,7 @@ export default function NodeDetailPage() {
               </div>
             ) : explainerError ? (
               <div className="text-center py-8 space-y-3">
-                <p className="text-muted-foreground text-sm">Could not generate explainer — is Ollama running?</p>
+                <p className="text-muted-foreground text-sm">Could not generate explainer. Please try again.</p>
                 <Button variant="outline" size="sm" onClick={() => loadExplainer(node, weave.topic)} className="border-border">
                   Try again
                 </Button>

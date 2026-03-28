@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import type { WeaveNode } from '@/lib/types'
-import { contributeToScaffold, fetchWeave } from '@/lib/api'
+import { contributeToScaffold } from '@/lib/api'
 import { useLumens } from '@/lib/lumens-context'
 
 interface ContributeModalProps {
@@ -69,7 +69,7 @@ export function ContributeModal({
         contributed_by: 'demo_user',
       })
 
-      earn(50)
+      await earn(50)
       setTitle('')
       setDescription('')
       onOpenChange(false)
@@ -81,24 +81,8 @@ export function ContributeModal({
         style: { borderLeft: '3px solid #22C55E' },
       })
 
-      // Poll once after ~15s to pick up any background gap detection scaffold
-      setTimeout(async () => {
-        try {
-          const updated = await fetchWeave(weaveId)
-          const hadScaffold = updated.nodes.some((n) => n.is_scaffold)
-          if (hadScaffold) {
-            onRefresh()
-            toast('🔍 AI found a knowledge gap — new scaffold added', {
-              style: { borderLeft: '3px solid #F59E0B' },
-            })
-          }
-        } catch {
-          // silent — gap detection is best-effort
-        }
-      }, 15_000)
-
     } catch {
-      toast.error('Something went wrong — is the backend running?', {
+      toast.error('Something went wrong. Please try again.', {
         style: { borderLeft: '3px solid #EF4444' },
       })
     } finally {

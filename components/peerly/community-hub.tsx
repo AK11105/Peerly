@@ -8,6 +8,13 @@ import {
 import { SponsoredCard, SPONSORED_ADS } from './sponsored-card'
 import { toast } from 'sonner'
 import { useLumens } from '@/lib/lumens-context'
+import { supabase } from '@/lib/supabase'
+import {
+  fetchMessages, postMessage, deleteMessage,
+  postReply, deleteReply,
+  toggleMessageUpvote, toggleReplyUpvote,
+  subscribeCommunity, type DbMessage, type DbReply,
+} from '@/lib/community'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -59,16 +66,6 @@ interface Channel {
   messages: Message[]
 }
 
-// ── Known users (for @mention autocomplete) ───────────────────────────────
-
-const KNOWN_USERS = [
-  { username: 'alice_dev',   initials: 'AK', rep: 'Expert' },
-  { username: 'bob_learn',   initials: 'BL', rep: 'Member' },
-  { username: 'carol_ai',    initials: 'CJ', rep: 'Top Contributor' },
-  { username: 'marcus_r',    initials: 'MR', rep: 'Member' },
-  { username: 'sara_p',      initials: 'SP', rep: 'Member' },
-  { username: 'demo_user',   initials: 'D',  rep: 'You' },
-]
 
 // ── Mention helpers ────────────────────────────────────────────────────────
 
@@ -497,17 +494,41 @@ interface CommunityHubProps {
   weaveName?: string     // display name shown in the header
 }
 
+function dbRowToMessage(r: DbMessage): Message {
+  const initials = r.username.slice(0, 2).toUpperCase()
+  return {
+    id: r.id,
+    initials,
+    username: r.username,
+    timestamp: new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    createdAt: new Date(r.created_at).getTime(),
+    unread: false,
+    text: r.text,
+    is_question: r.is_question,
+    isQuestion: r.is_question,
+    upvotes: r.upvotes,
+    isOwn: r.username === 'demo_user',
+    replies: (r.community_replies ?? []).map(rep => ({
+      id: rep.id,
+      initials: rep.username.slice(0, 2).toUpperCase(),
+      username: rep.username,
+      timestamp: new Date(rep.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date(rep.created_at).getTime(),
+      text: rep.text,
+      upvotes: rep.upvotes,
+      isOwn: rep.username === 'demo_user',
+    })),
+  }
+}
+
 export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProps) {
   const { earn } = useLumens()
 
   // keys is stable per weaveId — memoised so effects deps don't fire on every render
   const keys = useMemo(() => lsKeys(weaveId), [weaveId])
 
-  const [channels, setChannels] = useState<Channel[]>(() => loadChannels(weaveId, weaveName))
-  const [activeChannelId, setActiveChannelId] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'general'
-    return localStorage.getItem(keys.active) ?? 'general'
-  })
+  const [channels, setChannels] = useState<Channel[]>(() => makeSeedChannels(weaveName))
+  const [activeChannelId, setActiveChannelId] = useState<string>('general')
   const [collapsedCats, setCollapsedCats] = useState<Record<string, boolean>>({})
   const [showMembers, setShowMembers] = useState(false)
   const [msgInput, setMsgInput] = useState('')
@@ -515,8 +536,8 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
   const [showSearch, setShowSearch] = useState(false)
   // sortMode — per-channel map; derivation is below activeChannel
   const [sortModes, setSortModes] = useState<Record<string, 'top' | 'new' | 'hot'>>({}) 
-  const [votedIds, setVotedIds] = useState<Set<string>>(() => loadSet(keys.voted))
-  const [replyVotedIds, setReplyVotedIds] = useState<Set<string>>(() => loadSet(keys.replyVoted))
+  const [votedIds, setVotedIds] = useState<Set<string>>(new Set())
+  const [replyVotedIds, setReplyVotedIds] = useState<Set<string>>(new Set())
   // expanded reply threads: set of message ids
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set())
   // which message we're replying to (null = new top-level post)
@@ -535,6 +556,17 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
 
   // ── Lightbox state
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
+  const [knownUsers, setKnownUsers] = useState<{ username: string; initials: string; rep: string }[]>([])
+
+  useEffect(() => {
+    supabase.from('users').select('username').then(({ data }) => {
+      if (data) setKnownUsers(data.map((u: any) => ({
+        username: u.username,
+        initials: u.username.slice(0, 2).toUpperCase(),
+        rep: u.username === 'demo_user' ? 'You' : 'Member',
+      })))
+    })
+  }, [])
 
   // ── Mention autocomplete state ─────────────────────────────────────────
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)   // null = closed
@@ -555,7 +587,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     },
   ]
   const mentionResults = mentionQuery !== null
-    ? KNOWN_USERS.filter(u =>
+    ? knownUsers.filter(u =>
         u.username.toLowerCase().startsWith(mentionQuery.toLowerCase()) &&
         u.username !== 'demo_user'
       )
@@ -697,17 +729,32 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
 
   // ── Persistence ──────────────────────────────────────────────────────────
 
-  // Persist channels whenever they change (debounced 300ms)
+  // Load messages from Supabase when channel changes
   useEffect(() => {
-    const t = setTimeout(() => saveChannels(weaveId, channels), 300)
-    return () => clearTimeout(t)
-  }, [channels, weaveId])
+    if (!weaveId || weaveId === 'global') return
+    fetchMessages(weaveId, activeChannelId).then((rows) => {
+      setChannels(prev => prev.map(ch =>
+        ch.id !== activeChannelId ? ch : { ...ch, messages: rows.map(dbRowToMessage) }
+      ))
+    })
+  }, [weaveId, activeChannelId])
 
-  useEffect(() => { saveSet(keys.voted, votedIds) }, [votedIds, keys.voted])
-  useEffect(() => { saveSet(keys.replyVoted, replyVotedIds) }, [replyVotedIds, keys.replyVoted])
+  // Realtime subscription — only refetch on INSERT/UPDATE/DELETE, not on initial subscribe
   useEffect(() => {
-    try { localStorage.setItem(keys.active, activeChannelId) } catch {}
-  }, [activeChannelId, keys.active])
+    if (!weaveId || weaveId === 'global') return
+    let ready = false
+    const unsub = subscribeCommunity(weaveId, () => {
+      if (!ready) return  // ignore the initial subscription event
+      fetchMessages(weaveId, activeChannelId).then((rows) => {
+        setChannels(prev => prev.map(ch =>
+          ch.id !== activeChannelId ? ch : { ...ch, messages: rows.map(dbRowToMessage) }
+        ))
+      })
+    })
+    // Mark ready after a tick so the subscribe callback is ignored on first fire
+    setTimeout(() => { ready = true }, 500)
+    return unsub
+  }, [weaveId, activeChannelId])
 
 
 
@@ -760,34 +807,24 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     setMsgInput('')
   }, [])
 
-  const handleUpvote = useCallback((msgId: string) => {
+  const handleUpvote = useCallback(async (msgId: string) => {
     const alreadyVoted = votedIds.has(msgId)
-    setVotedIds(prev => {
-      const s = new Set(prev)
-      alreadyVoted ? s.delete(msgId) : s.add(msgId)
-      return s
-    })
+    setVotedIds(prev => { const s = new Set(prev); alreadyVoted ? s.delete(msgId) : s.add(msgId); return s })
     setChannels(prev => prev.map(ch =>
       ch.id !== activeChannelId ? ch : {
         ...ch,
         messages: ch.messages.map(m =>
-          m.id === msgId
-            ? { ...m, upvotes: alreadyVoted ? Math.max(0, m.upvotes - 1) : m.upvotes + 1 }
-            : m
+          m.id === msgId ? { ...m, upvotes: alreadyVoted ? Math.max(0, m.upvotes - 1) : m.upvotes + 1 } : m
         ),
       }
     ))
-    if (!alreadyVoted) earn(1)
-  }, [votedIds, activeChannelId, earn])
+    if (weaveId !== 'global') await toggleMessageUpvote(msgId)
+    else if (!alreadyVoted) earn(1)
+  }, [votedIds, activeChannelId, earn, weaveId])
 
-  // replyId is globally unique so we can use it as the vote key directly
-  const handleReplyUpvote = useCallback((msgId: string, replyId: string) => {
+  const handleReplyUpvote = useCallback(async (msgId: string, replyId: string) => {
     const alreadyVoted = replyVotedIds.has(replyId)
-    setReplyVotedIds(prev => {
-      const s = new Set(prev)
-      alreadyVoted ? s.delete(replyId) : s.add(replyId)
-      return s
-    })
+    setReplyVotedIds(prev => { const s = new Set(prev); alreadyVoted ? s.delete(replyId) : s.add(replyId); return s })
     setChannels(prev => prev.map(ch =>
       ch.id !== activeChannelId ? ch : {
         ...ch,
@@ -795,30 +832,26 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
           m.id !== msgId ? m : {
             ...m,
             replies: m.replies.map(r =>
-              r.id !== replyId ? r : {
-                ...r,
-                upvotes: alreadyVoted ? Math.max(0, r.upvotes - 1) : r.upvotes + 1,
-              }
+              r.id !== replyId ? r : { ...r, upvotes: alreadyVoted ? Math.max(0, r.upvotes - 1) : r.upvotes + 1 }
             ),
           }
         ),
       }
     ))
-    if (!alreadyVoted) earn(1)
-  }, [replyVotedIds, activeChannelId, earn])
+    if (weaveId !== 'global') await toggleReplyUpvote(replyId)
+    else if (!alreadyVoted) earn(1)
+  }, [replyVotedIds, activeChannelId, earn, weaveId])
 
-  const handleDeleteMessage = useCallback((msgId: string) => {
+  const handleDeleteMessage = useCallback(async (msgId: string) => {
     setChannels(prev => prev.map(ch =>
-      ch.id !== activeChannelId ? ch : {
-        ...ch,
-        messages: ch.messages.filter(m => m.id !== msgId),
-      }
+      ch.id !== activeChannelId ? ch : { ...ch, messages: ch.messages.filter(m => m.id !== msgId) }
     ))
     setConfirmDelete(null)
+    if (weaveId !== 'global') await deleteMessage(weaveId, msgId)
     toast('Post deleted.', { style: { borderLeft: '3px solid #EF4444' } })
-  }, [activeChannelId])
+  }, [activeChannelId, weaveId])
 
-  const handleDeleteReply = useCallback((msgId: string, replyId: string) => {
+  const handleDeleteReply = useCallback(async (msgId: string, replyId: string) => {
     setChannels(prev => prev.map(ch =>
       ch.id !== activeChannelId ? ch : {
         ...ch,
@@ -828,8 +861,9 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
       }
     ))
     setConfirmDelete(null)
+    if (weaveId !== 'global') await deleteReply(msgId, replyId)
     toast('Reply deleted.', { style: { borderLeft: '3px solid #EF4444' } })
-  }, [activeChannelId])
+  }, [activeChannelId, weaveId])
 
   const handleSend = useCallback(async () => {
     const raw = msgInput.trim()
@@ -869,6 +903,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
         }
       ))
       setReplyingTo(null)
+      if (weaveId !== 'global') await postReply(replyingTo, text)
       await new Promise(r => setTimeout(r, 400))
       setSending(false)
       earn(2)
@@ -903,15 +938,25 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
         setActiveChannelId(targetChannelId)
         toast('🔀 Escalated to #' + targetChannel.name, { style: { borderLeft: '3px solid #6366f1' } })
       }
-      await new Promise(r => setTimeout(r, 600))
-      setChannels(prev => prev.map(ch =>
-        ch.id !== targetChannelId ? ch : {
-          ...ch,
-          messages: ch.messages.map(m =>
-            m.id === newMsg.id ? { ...m, pendingSend: false } : m
-          ),
+      if (weaveId !== 'global') {
+        const saved = await postMessage(weaveId, targetChannelId, text, isQueryCommand || targetChannel.isQuery)
+        if (saved) {
+          setChannels(prev => prev.map(ch =>
+            ch.id !== targetChannelId ? ch : {
+              ...ch,
+              messages: ch.messages.map(m => m.id === newMsg.id ? { ...m, id: saved.id, pendingSend: false } : m),
+            }
+          ))
         }
-      ))
+      } else {
+        await new Promise(r => setTimeout(r, 600))
+        setChannels(prev => prev.map(ch =>
+          ch.id !== targetChannelId ? ch : {
+            ...ch,
+            messages: ch.messages.map(m => m.id === newMsg.id ? { ...m, pendingSend: false } : m),
+          }
+        ))
+      }
       setSending(false)
       earn(isQueryCommand || targetChannel.isQuery ? 5 : 2)
       toast.success(
@@ -951,13 +996,25 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     ))
     // Switch to the channel the post went to
     setActiveChannelId(newPostChannelId)
-    await new Promise(r => setTimeout(r, 500))
-    setChannels(prev => prev.map(ch =>
-      ch.id !== newPostChannelId ? ch : {
-        ...ch,
-        messages: ch.messages.map(m => m.id === newMsg.id ? { ...m, pendingSend: false } : m),
+    if (weaveId !== 'global') {
+      const saved = await postMessage(weaveId, newPostChannelId, text, isQ)
+      if (saved) {
+        setChannels(prev => prev.map(ch =>
+          ch.id !== newPostChannelId ? ch : {
+            ...ch,
+            messages: ch.messages.map(m => m.id === newMsg.id ? { ...m, id: saved.id, pendingSend: false } : m),
+          }
+        ))
       }
-    ))
+    } else {
+      await new Promise(r => setTimeout(r, 500))
+      setChannels(prev => prev.map(ch =>
+        ch.id !== newPostChannelId ? ch : {
+          ...ch,
+          messages: ch.messages.map(m => m.id === newMsg.id ? { ...m, pendingSend: false } : m),
+        }
+      ))
+    }
     setSending(false)
     setShowNewPost(false)
     setNewPostText('')

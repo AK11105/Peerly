@@ -16,7 +16,7 @@ export default function MyWeavesPage() {
   const [loading, setLoading] = useState(true)
 
   const loadWeaves = async () => {
-    const ids = getMyWeaveIds()
+    const ids = await getMyWeaveIds()
     if (ids.length === 0) { setLoading(false); return }
     const results = await Promise.allSettled(ids.map((id) => fetchWeave(id)))
     const loaded: Weave[] = []
@@ -30,8 +30,8 @@ export default function MyWeavesPage() {
 
   useEffect(() => { loadWeaves() }, [])
 
-  const handleDelete = (id: string) => {
-    removeMyWeaveId(id)
+  const handleDelete = async (id: string) => {
+    await removeMyWeaveId(id)
     setWeaves((prev) => prev.filter((w) => w.id !== id))
   }
 
@@ -81,7 +81,6 @@ export default function MyWeavesPage() {
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>{communityNodes} / {totalNodes} community nodes</span>
@@ -91,7 +90,6 @@ export default function MyWeavesPage() {
                       <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
-
                   <div className="flex items-center justify-between">
                     <div className="flex gap-2">
                       <Badge variant="outline" className="text-xs">{totalNodes} nodes</Badge>

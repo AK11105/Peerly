@@ -78,12 +78,14 @@ export function RedeemDialog({ open, onOpenChange }: RedeemDialogProps) {
     }
   }
 
-  const handleConfirm = () => {
-    if (selectedReward && spend(selectedReward.cost)) {
-      // Generate fake code
-      const code = `PEERLY-${selectedReward.partner.toUpperCase().slice(0, 3)}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
-      setRedeemCode(code)
-      setStep(3)
+  const handleConfirm = async () => {
+    if (selectedReward) {
+      const ok = await spend(selectedReward.cost)
+      if (ok) {
+        const code = `PEERLY-${selectedReward.partner.toUpperCase().slice(0, 3)}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+        setRedeemCode(code)
+        setStep(3)
+      }
     }
   }
 

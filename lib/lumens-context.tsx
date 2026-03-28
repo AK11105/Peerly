@@ -1,64 +1,55 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { supabase } from './supabase'
 
-const STORAGE_KEY = 'peerly_lumens_balance'
-const DEFAULT_BALANCE = 0
+const DEMO_USER = 'demo_user'
 
 interface LumensContextType {
   balance: number
-  spend: (amount: number) => boolean
-  earn: (amount: number) => void
+  spend: (amount: number) => Promise<boolean>
+  earn: (amount: number) => Promise<void>
   recentChange: { amount: number; type: 'spend' | 'earn' } | null
   clearRecentChange: () => void
 }
 
 const LumensContext = createContext<LumensContextType | null>(null)
 
-function getStoredBalance(): number {
-  if (typeof window === 'undefined') return DEFAULT_BALANCE
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored !== null) return parseInt(stored, 10)
-  } catch {}
-  return DEFAULT_BALANCE
-}
-
 export function LumensProvider({ children }: { children: ReactNode }) {
-  const [balance, setBalance] = useState(DEFAULT_BALANCE)
+  const [balance, setBalance] = useState(0)
   const [recentChange, setRecentChange] = useState<{ amount: number; type: 'spend' | 'earn' } | null>(null)
 
-  // Load from localStorage on mount
+  // Load balance on mount + subscribe to realtime changes
   useEffect(() => {
-    setBalance(getStoredBalance())
+    supabase.rpc('ensure_user', { p_username: DEMO_USER })
+    supabase.from('lumens').select('balance').eq('username', DEMO_USER).single()
+      .then(({ data }) => { if (data) setBalance(data.balance) })
+
+    const channel = supabase
+      .channel('lumens:demo_user')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lumens', filter: `username=eq.${DEMO_USER}` },
+        (payload) => setBalance((payload.new as any).balance)
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
-  // Persist to localStorage whenever balance changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, String(balance))
-    }
-  }, [balance])
-
-  const spend = useCallback((amount: number) => {
-    let ok = false
-    setBalance((prev) => {
-      if (amount > prev) return prev
-      ok = true
-      return prev - amount
-    })
-    if (ok) setRecentChange({ amount, type: 'spend' })
-    return ok
-  }, [])
-
-  const earn = useCallback((amount: number) => {
-    setBalance((prev) => prev + amount)
+  const earn = useCallback(async (amount: number) => {
+    const { data } = await supabase.rpc('earn_lumens', { p_username: DEMO_USER, p_amount: amount })
+    if (data != null) setBalance(data)
     setRecentChange({ amount, type: 'earn' })
   }, [])
 
-  const clearRecentChange = useCallback(() => {
-    setRecentChange(null)
+  const spend = useCallback(async (amount: number): Promise<boolean> => {
+    const { data, error } = await supabase.rpc('spend_lumens', { p_username: DEMO_USER, p_amount: amount })
+    if (error) return false
+    if (data != null) setBalance(data)
+    setRecentChange({ amount, type: 'spend' })
+    return true
   }, [])
+
+  const clearRecentChange = useCallback(() => setRecentChange(null), [])
 
   return (
     <LumensContext.Provider value={{ balance, spend, earn, recentChange, clearRecentChange }}>
@@ -68,9 +59,7 @@ export function LumensProvider({ children }: { children: ReactNode }) {
 }
 
 export function useLumens() {
-  const context = useContext(LumensContext)
-  if (!context) {
-    throw new Error('useLumens must be used within a LumensProvider')
-  }
-  return context
+  const ctx = useContext(LumensContext)
+  if (!ctx) throw new Error('useLumens must be used within LumensProvider')
+  return ctx
 }

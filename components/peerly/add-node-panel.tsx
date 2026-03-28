@@ -33,7 +33,7 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
         description: description.trim(),
         contributed_by: 'demo_user',
       })
-      earn(25)
+      await earn(25)
       setTitle('')
       setDescription('')
       setIsExpanded(false)
@@ -41,10 +41,8 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
       toast.success('+25 LM earned — Node added!', {
         style: { borderLeft: '3px solid #22C55E' },
       })
-      // Poll after ~15s to pick up any background gap detection scaffold
-      setTimeout(() => { onRefresh() }, 15_000)
     } catch {
-      toast.error('Something went wrong — is the backend running?', {
+      toast.error('Something went wrong. Please try again.', {
         style: { borderLeft: '3px solid #EF4444' },
       })
     } finally {

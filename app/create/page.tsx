@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { generateWeave, fetchAllWeaves } from '@/lib/api'
+import { generateWeave } from '@/lib/api'
 import { addMyWeaveId } from '@/lib/my-weaves'
 import { FIELDS } from '@/lib/fields'
 
@@ -94,42 +94,14 @@ function CreateWeaveForm() {
       const weave = await generateWeave(topic, [], selectedField || undefined, includeScaffolds)
       clearInterval(interval)
       setProgress(100)
-      addMyWeaveId(weave.id)
+      await addMyWeaveId(weave.id)
       toast.success('Weave created!')
       setTimeout(() => router.push(`/weave/${weave.id}`), 500)
     } catch {
       clearInterval(interval)
-      setProgress(98)
-
-      const pollToast = toast.loading('Ollama is still working… checking for result', {
-        style: { borderLeft: '3px solid #F59E0B' },
-      })
-
-      let found = false
-      for (let attempt = 0; attempt < 12; attempt++) {
-        await new Promise((r) => setTimeout(r, 10_000))
-        try {
-          const weaves = await fetchAllWeaves()
-          const match = weaves.find((w) =>
-            w.topic.toLowerCase().trim() === topic.toLowerCase().trim()
-          )
-          if (match) {
-            found = true
-            toast.dismiss(pollToast)
-            setProgress(100)
-            addMyWeaveId(match.id)
-            toast.success('Weave created!', { style: { borderLeft: '3px solid #22C55E' } })
-            setTimeout(() => router.push(`/weave/${match.id}`), 500)
-            break
-          }
-        } catch {}
-      }
-
-      if (!found) {
-        toast.dismiss(pollToast)
-        setLoading(false)
-        toast.error('Could not confirm weave creation — check backend logs')
-      }
+      setLoading(false)
+      setProgress(0)
+      toast.error('Failed to generate weave. Please try again.')
     }
   }
 
@@ -373,7 +345,7 @@ function CreateWeaveForm() {
             {loading ? (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground mb-2">
-                  {progress < 98 ? 'Ollama is building your Weave…' : 'Almost there — verifying result…'}
+                  {'Gemini is building your Weave…'}
                 </p>
                 <div className="h-2 bg-background rounded-full overflow-hidden">
                   <div

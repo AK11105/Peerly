@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { fetchAllWeaves } from '@/lib/api'
-import { getMyWeaveIds } from '@/lib/my-weaves'
+import { supabase } from '@/lib/supabase'
 import type { Weave } from '@/lib/types'
 
 const PROPOSALS = [
@@ -61,24 +61,23 @@ export default function AdminPanel() {
   const [loadingWeaves, setLoadingWeaves] = useState(true)
 
   useEffect(() => {
-    const ids = getMyWeaveIds()
-    if (ids.length === 0) {
-      // Fall back to all weaves
-      fetchAllWeaves()
-        .then((all) => { setMyWeaves(all); if (all.length > 0) setSelectedWeave(all[0]) })
-        .catch(() => {})
-        .finally(() => setLoadingWeaves(false))
-    } else {
-      fetchAllWeaves()
-        .then((all) => {
-          const mine = all.filter((w) => ids.includes(w.id))
-          const display = mine.length > 0 ? mine : all
-          setMyWeaves(display)
-          if (display.length > 0) setSelectedWeave(display[0])
-        })
-        .catch(() => {})
-        .finally(() => setLoadingWeaves(false))
-    }
+    (async () => {
+      try {
+        // Query weave_admins directly for the current user
+        const { data: adminRows } = await supabase
+          .from('weave_admins')
+          .select('weave_id')
+          .eq('username', 'demo_user')
+        const adminIds = (adminRows ?? []).map((r: any) => r.weave_id)
+        if (adminIds.length > 0) {
+          const all = await fetchAllWeaves()
+          const mine = all.filter((w) => adminIds.includes(w.id))
+          setMyWeaves(mine)
+          if (mine.length > 0) setSelectedWeave(mine[0])
+        }
+      } catch {}
+      setLoadingWeaves(false)
+    })()
   }, [])
 
   const handleApprove = (id: number) => {

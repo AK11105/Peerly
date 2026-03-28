@@ -30,12 +30,11 @@ async function submitPerspective(
   link: string,
   contributedBy: string
 ) {
-  const API_BASE = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000')
   const fullDescription = link.trim()
     ? `${description.trim()}\nReference: ${link.trim()}`
     : description.trim()
 
-  const res = await fetch(`${API_BASE}/api/weaves/${weaveId}/nodes/${nodeId}/contribute`, {
+  const res = await fetch(`/api/weaves/${weaveId}/nodes/${nodeId}/contribute`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -93,7 +92,7 @@ export function AddPerspectiveModal({
         style: { borderLeft: '3px solid #22C55E' },
       })
     } catch {
-      toast.error('Something went wrong — is the backend running?', {
+      toast.error('Something went wrong. Please try again.', {
         style: { borderLeft: '3px solid #EF4444' },
       })
     } finally {

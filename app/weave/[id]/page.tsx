@@ -9,6 +9,7 @@ import { WeaveViewer } from '@/components/peerly/weave-viewer'
 import { CommunityHub } from '@/components/peerly/community-hub'
 import { ContributeModal } from '@/components/peerly/contribute-modal'
 import { fetchWeave } from '@/lib/api'
+import { useRealtimeWeave } from '@/hooks/use-realtime-weave'
 import type { Weave, WeaveNode } from '@/lib/types'
 
 const MIN_WIDTH = 280
@@ -20,9 +21,10 @@ export default function WeavePage() {
   const router = useRouter()
   const weaveId = params?.id as string
 
-  const [weave, setWeave] = useState<Weave | null>(null)
+  const [fetchedWeave, setFetchedWeave] = useState<Weave | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const weave = useRealtimeWeave(weaveId, fetchedWeave)
   const [selectedScaffold, setSelectedScaffold] = useState<WeaveNode | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
 
@@ -37,10 +39,10 @@ export default function WeavePage() {
     if (!weaveId) return
     try {
       const data = await fetchWeave(weaveId)
-      setWeave(data)
+      setFetchedWeave(data)
       setError(null)
     } catch {
-      setError('Could not load this weave. Is the backend running?')
+      setError('Could not load this weave.')
     } finally {
       setLoading(false)
     }

@@ -1,51 +1,17 @@
-# Peerly — Integration Guide
-
-## Architecture
+# Peerly — Architecture
 
 ```
-Browser  →  Next.js (port 3000)  →  /api/* proxy  →  FastAPI (port 8000)  →  Ollama (port 11434)
+Browser  →  Next.js (port 3000)  →  /api/* routes  →  Supabase + Gemini
 ```
 
-## Quick Start
+All backend logic runs as Next.js API routes. The Python/FastAPI backend is no longer used.
 
-### 1. Ollama (required for AI features)
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16, React 19, Tailwind, shadcn/ui |
+| Database | Supabase (Postgres) |
+| Realtime | Supabase Realtime (postgres_changes) |
+| AI | Google Gemini 2.0 Flash (`@google/generative-ai`) |
+| Deployment | Vercel |
 
-```bash
-# Install from https://ollama.com then pull the model:
-ollama pull llama3
-ollama serve   # runs on http://localhost:11434
-```
-
-### 2. Backend
-
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-Backend runs at http://localhost:8000  
-Swagger docs at http://localhost:8000/docs
-
-### 3. Frontend
-
-```bash
-pnpm install
-pnpm dev        # http://localhost:3000
-```
-
-## Integration changes summary
-
-| File | Change |
-|------|--------|
-| `backend/app/ai.py` | Calls Ollama/llama3 (original setup preserved) |
-| `lib/api.ts` | Shared API client — all endpoints in one place |
-| `app/weave/[id]/page.tsx` | **New** — dynamic weave viewer (create → redirect here) |
-| `app/my-weaves/page.tsx` | **New** — lists your created weaves (localStorage tracking) |
-| `app/page.tsx` | Redirects `/` → `/explore` |
-| `app/explore/page.tsx` | Fetches live weaves from backend with search |
-| `app/create/page.tsx` | Uses API client + saves weave ID to My Weaves |
-| `components/peerly/navbar.tsx` | My Weaves link fixed: `/` → `/my-weaves` |
-| `components/peerly/add-node-panel.tsx` | Accepts `weaveId` prop; no hardcoded IDs |
-| `components/peerly/contribute-modal.tsx` | Accepts `weaveId` prop; no hardcoded IDs |
-| `next.config.mjs` | `/api/*` proxy rewrite → backend |
+See `SETUP.md` for setup instructions.
