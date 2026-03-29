@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 import { Search, X } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
@@ -29,6 +30,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
 }
 
 export default function ExplorePage() {
+  const { isSignedIn } = useUser()
   const [weaves, setWeaves] = useState<Weave[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)

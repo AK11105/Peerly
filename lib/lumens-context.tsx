@@ -1,9 +1,8 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { supabase } from './supabase'
-
-const DEMO_USER = 'demo_user'
 
 interface LumensContextType {
   balance: number
@@ -16,38 +15,72 @@ interface LumensContextType {
 const LumensContext = createContext<LumensContextType | null>(null)
 
 export function LumensProvider({ children }: { children: ReactNode }) {
+  const { user } = useUser()
+  const username = user?.id ?? null
+
   const [balance, setBalance] = useState(0)
   const [recentChange, setRecentChange] = useState<{ amount: number; type: 'spend' | 'earn' } | null>(null)
 
-  // Load balance on mount + subscribe to realtime changes
   useEffect(() => {
-    supabase.rpc('ensure_user', { p_username: DEMO_USER })
-    supabase.from('lumens').select('balance').eq('username', DEMO_USER).single()
-      .then(({ data }) => { if (data) setBalance(data.balance) })
+    if (!username) return
+
+    const clerkDisplayName = user?.username ?? user?.firstName ?? null
+
+    const fetchBalance = () =>
+      supabase.from('lumens').select('balance').eq('username', username).single()
+        .then(({ data }) => { if (data) setBalance(data.balance) })
+
+    supabase.from('users')
+      .upsert({ username }, { onConflict: 'username', ignoreDuplicates: true })
+      .then(() => {
+        if (clerkDisplayName) {
+          supabase.from('users').update({ display_name: clerkDisplayName })
+            .eq('username', username).is('display_name', null).then(() => {})
+        }
+        // Chain lumens upsert AFTER users row exists (FK constraint)
+        supabase.from('lumens')
+          .upsert({ username, balance: 0 }, { onConflict: 'username', ignoreDuplicates: true })
+          .then(() => fetchBalance())
+      })
 
     const channel = supabase
-      .channel('lumens:demo_user')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lumens', filter: `username=eq.${DEMO_USER}` },
+      .channel(`lumens:${username}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lumens', filter: `username=eq.${username}` },
         (payload) => setBalance((payload.new as any).balance)
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
-  }, [])
+    // Refetch on tab focus as fallback if Realtime misses an update
+    window.addEventListener('focus', fetchBalance)
+    return () => { supabase.removeChannel(channel); window.removeEventListener('focus', fetchBalance) }
+  }, [username])
+
+  const refetchBalance = useCallback(async () => {
+    if (!username) return
+    // Small delay to let the server-side DB write commit before reading back
+    await new Promise(r => setTimeout(r, 300))
+    const { data } = await supabase.from('lumens').select('balance').eq('username', username).single()
+    if (data) setBalance(data.balance)
+  }, [username])
 
   const earn = useCallback(async (amount: number) => {
-    const { data } = await supabase.rpc('earn_lumens', { p_username: DEMO_USER, p_amount: amount })
-    if (data != null) setBalance(data)
+    if (!username) return
+    await refetchBalance()
     setRecentChange({ amount, type: 'earn' })
-  }, [])
+  }, [username, refetchBalance])
 
   const spend = useCallback(async (amount: number): Promise<boolean> => {
-    const { data, error } = await supabase.rpc('spend_lumens', { p_username: DEMO_USER, p_amount: amount })
-    if (error) return false
-    if (data != null) setBalance(data)
+    if (!username) return false
+    const res = await fetch('/api/lumens/spend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount }),
+    })
+    if (!res.ok) return false
+    await refetchBalance()
     setRecentChange({ amount, type: 'spend' })
     return true
-  }, [])
+  }, [username, refetchBalance])
 
   const clearRecentChange = useCallback(() => setRecentChange(null), [])
 

@@ -1,3 +1,4 @@
+import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
@@ -5,6 +6,9 @@ const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 const model = genai.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
 export async function POST(req: Request) {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { title, description, topic, depth = 0, difficulty = 1 } = await req.json()
 
   const level = ['foundational', 'core', 'intermediate', 'advanced', 'expert'][Math.min(depth, 4)]

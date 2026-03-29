@@ -13,8 +13,9 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import type { WeaveNode } from '@/lib/types'
-import { contributeToScaffold } from '@/lib/api'
+import { contributeToScaffold, ProRequiredError } from '@/lib/api'
 import { useLumens } from '@/lib/lumens-context'
+import { useCurrentUser } from '@/hooks/use-current-user'
 
 interface ContributeModalProps {
   node: WeaveNode | null
@@ -35,6 +36,7 @@ export function ContributeModal({
   const [description, setDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { earn } = useLumens()
+  const currentUser = useCurrentUser()
   const [link, setLink] = useState('')
   const [linkError, setLinkError] = useState('')
 
@@ -66,7 +68,8 @@ export function ContributeModal({
         scaffold_node_id: node.id,
         title: title.trim() || node.title.trim(),
         description: link.trim() ? `${description.trim()}\n\nReference: ${link.trim()}` : description.trim(),
-        contributed_by: 'demo_user',
+        contributed_by: currentUser?.displayName ?? 'anonymous',
+        user_id: currentUser?.id,
       })
 
       await earn(50)
@@ -81,10 +84,12 @@ export function ContributeModal({
         style: { borderLeft: '3px solid #22C55E' },
       })
 
-    } catch {
-      toast.error('Something went wrong. Please try again.', {
-        style: { borderLeft: '3px solid #EF4444' },
-      })
+    } catch (err) {
+      if (err instanceof ProRequiredError) {
+        toast.info('Pro plan required.', { description: 'Paid plans are coming soon. Stay tuned!', action: { label: 'See Plans', onClick: () => window.location.href = '/pricing' } })
+      } else {
+        toast.error('Something went wrong. Please try again.', { style: { borderLeft: '3px solid #EF4444' } })
+      }
     } finally {
       setIsLoading(false)
     }

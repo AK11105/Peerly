@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
+import { isPro } from '@/lib/check-plan'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { randomUUID } from 'crypto'
@@ -27,6 +29,10 @@ async function callAI(prompt: string): Promise<string> {
 }
 
 export async function POST(req: Request) {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await isPro(userId)) return NextResponse.json({ error: 'pro_required' }, { status: 403 })
+
   const { topic, seed_nodes = [], field, include_scaffolds = true } = await req.json()
 
   let nodes: any[] = []
@@ -59,7 +65,7 @@ Output ONLY a JSON array:
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Register creator as admin
-  const creator = 'demo_user'
+  const creator = userId
   await supabase.rpc('ensure_user', { p_username: creator })
   await supabase.from('weave_admins').upsert({ weave_id: weave.id, username: creator })
   await supabase.from('user_weaves').upsert({ username: creator, weave_id: weave.id })

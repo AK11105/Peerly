@@ -13,7 +13,9 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import type { WeaveNode } from '@/lib/types'
+import { ProRequiredError } from '@/lib/api'
 import { useLumens } from '@/lib/lumens-context'
+import { useCurrentUser } from '@/hooks/use-current-user'
 
 interface AddPerspectiveModalProps {
   node: WeaveNode | null
@@ -28,7 +30,8 @@ async function submitPerspective(
   nodeId: string,
   description: string,
   link: string,
-  contributedBy: string
+  contributedBy: string,
+  userId?: string
 ) {
   const fullDescription = link.trim()
     ? `${description.trim()}\nReference: ${link.trim()}`
@@ -42,8 +45,10 @@ async function submitPerspective(
       title: '',           // not used for perspectives — backend ignores it
       description: fullDescription,
       contributed_by: contributedBy,
+      user_id: userId,
     }),
   })
+  if (res.status === 403) throw new ProRequiredError()
   if (!res.ok) throw new Error('Failed to add perspective')
   return res.json()
 }
@@ -60,6 +65,7 @@ export function AddPerspectiveModal({
   const [linkError, setLinkError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { earn } = useLumens()
+  const currentUser = useCurrentUser()
 
   const validateLink = (value: string) => {
     if (!value.trim()) { setLinkError(''); return true }
@@ -84,17 +90,19 @@ export function AddPerspectiveModal({
 
     setIsLoading(true)
     try {
-      await submitPerspective(weaveId, node.id, description, link, 'demo_user')
+      await submitPerspective(weaveId, node.id, description, link, currentUser?.displayName ?? 'anonymous', currentUser?.id)
       earn(25)
       handleClose()
       onRefresh()
       toast.success('+25 LM earned! Your perspective was added.', {
         style: { borderLeft: '3px solid #22C55E' },
       })
-    } catch {
-      toast.error('Something went wrong. Please try again.', {
-        style: { borderLeft: '3px solid #EF4444' },
-      })
+    } catch (err) {
+      if (err instanceof ProRequiredError) {
+        toast.info('Pro plan required.', { description: 'Paid plans are coming soon. Stay tuned!', action: { label: 'See Plans', onClick: () => window.location.href = '/pricing' } })
+      } else {
+        toast.error('Something went wrong. Please try again.', { style: { borderLeft: '3px solid #EF4444' } })
+      }
     } finally {
       setIsLoading(false)
     }

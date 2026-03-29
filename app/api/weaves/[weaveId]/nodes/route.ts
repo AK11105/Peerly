@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
+import { isPro } from '@/lib/check-plan'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { randomUUID } from 'crypto'
@@ -62,6 +64,10 @@ Output ONLY the JSON.`
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ weaveId: string }> }) {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await isPro(userId)) return NextResponse.json({ error: 'pro_required' }, { status: 403 })
+
   const { weaveId } = await params
   const body = await req.json()
 
@@ -82,11 +88,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
   const { error: updateErr } = await supabase.from('weaves').update({ nodes: updatedNodes }).eq('id', weaveId)
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
 
-  // Record contribution + earn lumens
-  const username = body.contributed_by ?? 'anonymous'
-  await supabase.rpc('ensure_user', { p_username: username })
-  await supabase.from('contributions').insert({ weave_id: weaveId, node_id: newNode.id, username, type: 'add_node', lumens_earned: 25 })
-  await supabase.rpc('earn_lumens', { p_username: username, p_amount: 25 })
+  await supabase.rpc('ensure_user', { p_username: userId })
+  await supabase.from('contributions').insert({ weave_id: weaveId, node_id: newNode.id, username: userId, type: 'add_node', lumens_earned: 25 })
+  await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 25 })
 
   // Fire-and-forget gap detection — Supabase Realtime will push the scaffold to clients
   runGapDetection(weaveId, updatedNodes, body.title, body.description)

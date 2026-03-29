@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { fetchAllWeaves } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { useUser } from '@clerk/nextjs'
 import type { Weave } from '@/lib/types'
 
 const PROPOSALS = [
@@ -53,6 +54,8 @@ const VERSION_HISTORY = [
 ]
 
 export default function AdminPanel() {
+  const { user } = useUser()
+  const username = user?.id
   const [activeTab, setActiveTab] = useState('weaves')
   const [proposals, setProposals] = useState(PROPOSALS)
   const [votes, setVotes] = useState(ACTIVE_VOTES)
@@ -61,13 +64,13 @@ export default function AdminPanel() {
   const [loadingWeaves, setLoadingWeaves] = useState(true)
 
   useEffect(() => {
-    (async () => {
+    if (!username) return
+    ;(async () => {
       try {
-        // Query weave_admins directly for the current user
         const { data: adminRows } = await supabase
           .from('weave_admins')
           .select('weave_id')
-          .eq('username', 'demo_user')
+          .eq('username', username)
         const adminIds = (adminRows ?? []).map((r: any) => r.weave_id)
         if (adminIds.length > 0) {
           const all = await fetchAllWeaves()
@@ -78,7 +81,7 @@ export default function AdminPanel() {
       } catch {}
       setLoadingWeaves(false)
     })()
-  }, [])
+  }, [username])
 
   const handleApprove = (id: number) => {
     setProposals(proposals.map((p) => p.id === id ? { ...p, status: 'approved' as const } : p))

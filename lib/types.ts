@@ -19,6 +19,7 @@ export interface AddNodePayload {
   title: string
   description: string
   contributed_by: string
+  user_id?: string
 }
 
 export interface AddNodeResponse {
@@ -33,4 +34,5 @@ export interface ContributePayload {
   title: string
   description: string
   contributed_by: string
+  user_id?: string
 }

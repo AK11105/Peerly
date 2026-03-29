@@ -34,7 +34,7 @@ function color(idx: number) {
 export function ContributionThread({
   contributions,
   onChange,
-  currentUser = 'demo_user',
+  currentUser,
 }: ContributionThreadProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')

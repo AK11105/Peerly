@@ -9,29 +9,34 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { fetchWeave } from '@/lib/api'
 import { getMyWeaveIds, removeMyWeaveId } from '@/lib/my-weaves'
+import { useUser } from '@clerk/nextjs'
 import type { Weave } from '@/lib/types'
 
 export default function MyWeavesPage() {
+  const { user } = useUser()
+  const username = user?.id
   const [weaves, setWeaves] = useState<Weave[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadWeaves = async () => {
-    const ids = await getMyWeaveIds()
+    if (!username) return
+    const ids = await getMyWeaveIds(username)
     if (ids.length === 0) { setLoading(false); return }
     const results = await Promise.allSettled(ids.map((id) => fetchWeave(id)))
     const loaded: Weave[] = []
     results.forEach((r, i) => {
       if (r.status === 'fulfilled') loaded.push(r.value)
-      else removeMyWeaveId(ids[i])
+      else removeMyWeaveId(username, ids[i])
     })
     setWeaves(loaded)
     setLoading(false)
   }
 
-  useEffect(() => { loadWeaves() }, [])
+  useEffect(() => { loadWeaves() }, [username])
 
   const handleDelete = async (id: string) => {
-    await removeMyWeaveId(id)
+    if (!username) return
+    await removeMyWeaveId(username, id)
     setWeaves((prev) => prev.filter((w) => w.id !== id))
   }
 

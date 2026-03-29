@@ -6,8 +6,9 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { addNode } from '@/lib/api'
+import { addNode, ProRequiredError } from '@/lib/api'
 import { useLumens } from '@/lib/lumens-context'
+import { useCurrentUser } from '@/hooks/use-current-user'
 
 interface AddNodePanelProps {
   weaveId: string
@@ -20,6 +21,7 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
   const [description, setDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { earn } = useLumens()
+  const currentUser = useCurrentUser()
 
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim()) {
@@ -31,7 +33,8 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
       const data = await addNode(weaveId, {
         title: title.trim(),
         description: description.trim(),
-        contributed_by: 'demo_user',
+        contributed_by: currentUser?.displayName ?? 'anonymous',
+        user_id: currentUser?.id,
       })
       await earn(25)
       setTitle('')
@@ -41,10 +44,12 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
       toast.success('+25 LM earned — Node added!', {
         style: { borderLeft: '3px solid #22C55E' },
       })
-    } catch {
-      toast.error('Something went wrong. Please try again.', {
-        style: { borderLeft: '3px solid #EF4444' },
-      })
+    } catch (err) {
+      if (err instanceof ProRequiredError) {
+        toast.info('Pro plan required.', { description: 'Paid plans are coming soon. Stay tuned!', action: { label: 'See Plans', onClick: () => window.location.href = '/pricing' } })
+      } else {
+        toast.error('Something went wrong. Please try again.', { style: { borderLeft: '3px solid #EF4444' } })
+      }
     } finally {
       setIsLoading(false)
     }

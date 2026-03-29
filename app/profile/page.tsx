@@ -1,22 +1,23 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Star } from 'lucide-react'
+import { Star, Pencil, Check, X } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useUser } from '@clerk/nextjs'
 import { useLumens } from '@/lib/lumens-context'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import { supabase } from '@/lib/supabase'
 import { getMyWeaveIds } from '@/lib/my-weaves'
 import { fetchWeave } from '@/lib/api'
 import type { Weave } from '@/lib/types'
-
-const DEMO_USER = 'demo_user'
 
 const REDEEM_OPTIONS = [
   { name: 'Grammarly Pro (1 month)', cost: 500 },
@@ -24,24 +25,33 @@ const REDEEM_OPTIONS = [
 ]
 
 export default function ProfilePage() {
+  const { user, isLoaded } = useUser()
+  const currentUser = useCurrentUser()
+  const username = currentUser?.id ?? user?.id
   const { balance, spend } = useLumens()
   const [showRedeemDialog, setShowRedeemDialog] = useState(false)
   const [myWeaves, setMyWeaves] = useState<Weave[]>([])
   const [contributions, setContributions] = useState<{ weave: string; node: string; type: string }[]>([])
   const [rank, setRank] = useState<number | null>(null)
 
+  // Display name editing
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  const [nameError, setNameError] = useState('')
+  const [nameSaving, setNameSaving] = useState(false)
+  const displayName = currentUser?.displayName ?? user?.id ?? ''
+
   useEffect(() => {
-    // Load weaves
-    getMyWeaveIds().then(async (ids) => {
+    if (!username) return
+    getMyWeaveIds(username).then(async (ids) => {
       const results = await Promise.allSettled(ids.map((id) => fetchWeave(id)))
       setMyWeaves(results.filter((r) => r.status === 'fulfilled').map((r) => (r as PromiseFulfilledResult<Weave>).value))
     })
 
-    // Load contributions from DB
     supabase
       .from('contributions')
       .select('weave_id, node_id, type, weaves(topic)')
-      .eq('username', DEMO_USER)
+      .eq('username', username)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         if (data) {
@@ -53,15 +63,14 @@ export default function ProfilePage() {
         }
       })
 
-    // Load rank from leaderboard
     fetch('/api/leaderboard')
       .then(r => r.json())
       .then((data: any[]) => {
-        const idx = data.findIndex((r: any) => r.username === DEMO_USER)
+        const idx = data.findIndex((r: any) => r.username === username)
         if (idx !== -1) setRank(idx + 1)
       })
       .catch(() => {})
-  }, [])
+  }, [username])
 
   const handleRedeem = async (cost: number, name: string) => {
     const ok = await spend(cost)
@@ -70,7 +79,46 @@ export default function ProfilePage() {
     alert(`Redeemed: ${name}`)
   }
 
+  const startEditName = () => {
+    setNameInput(displayName)
+    setNameError('')
+    setEditingName(true)
+  }
+
+  const saveName = async () => {
+    const trimmed = nameInput.trim()
+    if (trimmed.length < 2 || trimmed.length > 30) {
+      setNameError('Must be 2–30 characters')
+      return
+    }
+    setNameSaving(true)
+    setNameError('')
+    const res = await fetch('/api/user/display-name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName: trimmed }),
+    })
+    setNameSaving(false)
+    if (!res.ok) {
+      const data = await res.json()
+      setNameError(data.error ?? 'Failed to save')
+      return
+    }
+    setEditingName(false)
+    // Refresh page to pick up new display name from hook
+    window.location.reload()
+  }
+
   const repScore = contributions.length * 50 + Math.floor(balance / 10)
+
+  if (!isLoaded) return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="flex items-center justify-center h-64">
+        <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-background">
@@ -81,10 +129,38 @@ export default function ProfilePage() {
         <Card className="p-8 mb-8 bg-card border-border">
           <div className="flex items-start gap-6 mb-8">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-2xl font-bold text-primary-foreground">
-              D
+              {displayName[0]?.toUpperCase() ?? '?'}
             </div>
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-foreground mb-2">{DEMO_USER}</h1>
+              {/* Display name with inline edit */}
+              <div className="flex items-center gap-2 mb-2">
+                {editingName ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={nameInput}
+                      onChange={e => setNameInput(e.target.value)}
+                      className="h-9 text-xl font-bold w-48"
+                      maxLength={30}
+                      autoFocus
+                      onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
+                    />
+                    <button onClick={saveName} disabled={nameSaving} className="text-primary hover:opacity-80">
+                      <Check className="h-5 w-5" />
+                    </button>
+                    <button onClick={() => setEditingName(false)} className="text-muted-foreground hover:opacity-80">
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <h1 className="text-3xl font-bold text-foreground">{displayName}</h1>
+                    <button onClick={startEditName} className="text-muted-foreground hover:text-foreground transition-colors">
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
+              </div>
+              {nameError && <p className="text-xs text-red-400 mb-2">{nameError}</p>}
               <p className="text-sm text-muted-foreground mb-4">
                 {myWeaves.length} weaves created · {contributions.length} contributions
               </p>

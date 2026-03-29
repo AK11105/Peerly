@@ -9,15 +9,20 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { generateWeave } from '@/lib/api'
+import { generateWeave, ProRequiredError } from '@/lib/api'
 import { addMyWeaveId } from '@/lib/my-weaves'
 import { FIELDS } from '@/lib/fields'
+import { useUser } from '@clerk/nextjs'
+import { useCurrentUser } from '@/hooks/use-current-user'
 
 const FIELD_NAMES = FIELDS.map((f) => f.name)
 
 function CreateWeaveForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user } = useUser()
+  const username = user?.id
+  const currentUser = useCurrentUser()
   const preselectedField = searchParams.get('field') ?? ''
 
   const [step, setStep] = useState(1)
@@ -94,14 +99,18 @@ function CreateWeaveForm() {
       const weave = await generateWeave(topic, [], selectedField || undefined, includeScaffolds)
       clearInterval(interval)
       setProgress(100)
-      await addMyWeaveId(weave.id)
+      await addMyWeaveId(username!, weave.id)
       toast.success('Weave created!')
       setTimeout(() => router.push(`/weave/${weave.id}`), 500)
-    } catch {
+    } catch (err) {
       clearInterval(interval)
       setLoading(false)
       setProgress(0)
-      toast.error('Failed to generate weave. Please try again.')
+      if (err instanceof ProRequiredError) {
+        toast.info('Pro plan required.', { description: 'Paid plans are coming soon. Stay tuned!', action: { label: 'See Plans', onClick: () => router.push('/pricing') } })
+      } else {
+        toast.error('Failed to generate weave. Please try again.')
+      }
     }
   }
 
@@ -323,7 +332,7 @@ function CreateWeaveForm() {
 
               <div className="flex flex-wrap gap-2 mb-6">
                 <Badge className="bg-primary/20 text-primary pl-3 py-1.5 flex items-center gap-2">
-                  <span>You (demo_user)</span>
+                  <span>You ({currentUser?.displayName ?? username})</span>
                 </Badge>
                 {admins.map((admin, i) => (
                   <Badge

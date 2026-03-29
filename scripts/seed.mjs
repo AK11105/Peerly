@@ -23,7 +23,12 @@ const supabase = createClient(
   env['SUPABASE_SERVICE_ROLE_KEY']
 )
 
-const USERS = ['demo_user', 'alice_dev', 'bob_learn', 'carol_ai']
+const USERS = [
+  { username: 'demo_user', display_name: 'Demo User' },
+  { username: 'alice_dev', display_name: 'Alice Dev' },
+  { username: 'bob_learn', display_name: 'Bob Learn' },
+  { username: 'carol_ai', display_name: 'Carol AI' },
+]
 
 const WEAVES = [
   {
@@ -92,9 +97,9 @@ async function seed() {
   await supabase.from('users').delete().neq('username', '__none__')
   console.log('Wiped.\n')
   console.log('Seeding users…')
-  for (const username of USERS) {
-    await supabase.from('users').upsert({ username })
-    await supabase.from('lumens').upsert({ username, balance: Math.floor(Math.random() * 800) + 100 })
+  for (const u of USERS) {
+    await supabase.from('users').upsert({ username: u.username, display_name: u.display_name })
+    await supabase.from('lumens').upsert({ username: u.username, balance: Math.floor(Math.random() * 800) + 100 })
   }
 
   console.log('Seeding weaves…')
@@ -106,8 +111,8 @@ async function seed() {
     if (error) { console.error(`Failed to insert ${w.topic}:`, error.message); continue }
 
     // Register demo_user as admin + bookmark
-    await supabase.from('weave_admins').upsert({ weave_id: weaveId, username: 'demo_user' })
-    await supabase.from('user_weaves').upsert({ username: 'demo_user', weave_id: weaveId })
+    await supabase.from('weave_admins').upsert({ weave_id: weaveId, username: USERS[0].username })
+    await supabase.from('user_weaves').upsert({ username: USERS[0].username, weave_id: weaveId })
 
     // Record contributions
     for (const node of nodes) {
@@ -125,16 +130,16 @@ async function seed() {
     // Seed community messages
     const channels = ['general', 'suggestions', 'help', 'theory', 'resources']
     const seedMsgs = [
-      { channel: 'general', username: 'alice_dev', text: `Welcome to the ${w.topic} community! Share insights and ask questions.`, is_question: false },
-      { channel: 'general', username: 'bob_learn', text: `Just started learning ${w.topic} — the node structure here is really clear.`, is_question: false },
-      { channel: 'suggestions', username: 'carol_ai', text: `Would love more worked examples in the ${w.topic} nodes.`, is_question: false },
-      { channel: 'help', username: 'alice_dev', text: `What's the best way to get started with ${w.topic}?`, is_question: true },
-      { channel: 'theory', username: 'carol_ai', text: `What's the theoretical foundation behind the key concepts in ${w.topic}?`, is_question: true },
+      { channel: 'general', username: USERS[1].username, text: `Welcome to the ${w.topic} community! Share insights and ask questions.`, is_question: false },
+      { channel: 'general', username: USERS[2].username, text: `Just started learning ${w.topic} — the node structure here is really clear.`, is_question: false },
+      { channel: 'suggestions', username: USERS[3].username, text: `Would love more worked examples in the ${w.topic} nodes.`, is_question: false },
+      { channel: 'help', username: USERS[1].username, text: `What's the best way to get started with ${w.topic}?`, is_question: true },
+      { channel: 'theory', username: USERS[3].username, text: `What's the theoretical foundation behind the key concepts in ${w.topic}?`, is_question: true },
     ]
     for (const msg of seedMsgs) {
       const { data: msgRow } = await supabase.from('community_messages').insert({ weave_id: weaveId, ...msg }).select().single()
       if (msgRow && msg.channel === 'help') {
-        await supabase.from('community_replies').insert({ message_id: msgRow.id, username: 'bob_learn', text: `Work through the weave nodes in order, then implement each concept from scratch.` })
+        await supabase.from('community_replies').insert({ message_id: msgRow.id, username: USERS[2].username, text: `Work through the weave nodes in order, then implement each concept from scratch.` })
       }
     }
 

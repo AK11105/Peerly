@@ -13,6 +13,19 @@ export async function fetchAllWeaves(): Promise<Weave[]> {
   return data ?? []
 }
 
+export class ProRequiredError extends Error {
+  constructor() { super('pro_required') }
+}
+
+async function checkResponse(res: Response) {
+  if (res.status === 403) {
+    const data = await res.json().catch(() => ({}))
+    if (data.error === 'pro_required') throw new ProRequiredError()
+  }
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
 export async function generateWeave(
   topic: string,
   seedNodes: string[] = [],
@@ -24,8 +37,7 @@ export async function generateWeave(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ topic, seed_nodes: seedNodes, field, include_scaffolds: includeScaffolds }),
   })
-  if (!res.ok) throw new Error('Failed to generate weave')
-  return res.json()
+  return checkResponse(res)
 }
 
 export async function addNode(weaveId: string, payload: AddNodePayload) {
@@ -34,8 +46,7 @@ export async function addNode(weaveId: string, payload: AddNodePayload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...payload, weave_id: weaveId }),
   })
-  if (!res.ok) throw new Error('Failed to add node')
-  return res.json()
+  return checkResponse(res)
 }
 
 export async function contributeToScaffold(weaveId: string, payload: ContributePayload) {
@@ -44,8 +55,7 @@ export async function contributeToScaffold(weaveId: string, payload: ContributeP
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) throw new Error('Failed to contribute')
-  return res.json()
+  return checkResponse(res)
 }
 
 export async function addPerspective(weaveId: string, nodeId: string, payload: AddNodePayload) {
@@ -54,6 +64,5 @@ export async function addPerspective(weaveId: string, nodeId: string, payload: A
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...payload, weave_id: weaveId }),
   })
-  if (!res.ok) throw new Error('Failed to add perspective')
-  return res.json()
+  return checkResponse(res)
 }

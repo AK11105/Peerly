@@ -8,6 +8,7 @@ import {
 import { SponsoredCard, SPONSORED_ADS } from './sponsored-card'
 import { toast } from 'sonner'
 import { useLumens } from '@/lib/lumens-context'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import { supabase } from '@/lib/supabase'
 import {
   fetchMessages, postMessage, deleteMessage,
@@ -494,12 +495,20 @@ interface CommunityHubProps {
   weaveName?: string     // display name shown in the header
 }
 
-function dbRowToMessage(r: DbMessage): Message {
-  const initials = r.username.slice(0, 2).toUpperCase()
+function toDisplayName(display_name: string | null, username: string | null): string {
+  if (display_name) return display_name
+  if (!username) return 'anonymous'
+  // Clerk IDs look like user_2abc... — show last 6 chars as a readable fallback
+  return username.startsWith('user_') ? `user_${username.slice(-6)}` : username
+}
+
+function dbRowToMessage(r: DbMessage, userId: string | null): Message {
+  const authorName = toDisplayName(r.display_name, r.username)
+  const initials = authorName.slice(0, 2).toUpperCase()
   return {
     id: r.id,
     initials,
-    username: r.username,
+    username: authorName,
     timestamp: new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     createdAt: new Date(r.created_at).getTime(),
     unread: false,
@@ -507,22 +516,28 @@ function dbRowToMessage(r: DbMessage): Message {
     is_question: r.is_question,
     isQuestion: r.is_question,
     upvotes: r.upvotes,
-    isOwn: r.username === 'demo_user',
-    replies: (r.community_replies ?? []).map(rep => ({
-      id: rep.id,
-      initials: rep.username.slice(0, 2).toUpperCase(),
-      username: rep.username,
-      timestamp: new Date(rep.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      createdAt: new Date(rep.created_at).getTime(),
-      text: rep.text,
-      upvotes: rep.upvotes,
-      isOwn: rep.username === 'demo_user',
-    })),
+    isOwn: r.username === userId,
+    replies: (r.community_replies ?? []).map(rep => {
+      const repName = toDisplayName(rep.display_name, rep.username)
+      return {
+        id: rep.id,
+        initials: repName.slice(0, 2).toUpperCase(),
+        username: repName,
+        timestamp: new Date(rep.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        createdAt: new Date(rep.created_at).getTime(),
+        text: rep.text,
+        upvotes: rep.upvotes,
+        isOwn: rep.username === userId,
+      }
+    }),
   }
 }
 
 export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProps) {
   const { earn } = useLumens()
+  const currentUser = useCurrentUser()
+  const userId = currentUser?.id ?? null
+  const displayName = currentUser?.displayName ?? 'anonymous'
 
   // keys is stable per weaveId — memoised so effects deps don't fire on every render
   const keys = useMemo(() => lsKeys(weaveId), [weaveId])
@@ -559,12 +574,15 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
   const [knownUsers, setKnownUsers] = useState<{ username: string; initials: string; rep: string }[]>([])
 
   useEffect(() => {
-    supabase.from('users').select('username').then(({ data }) => {
-      if (data) setKnownUsers(data.map((u: any) => ({
-        username: u.username,
-        initials: u.username.slice(0, 2).toUpperCase(),
-        rep: u.username === 'demo_user' ? 'You' : 'Member',
-      })))
+    supabase.from('users').select('username, display_name').then(({ data }) => {
+      if (data) setKnownUsers(data.map((u: any) => {
+        const name = u.display_name ?? u.username
+        return {
+          username: name,
+          initials: name.slice(0, 2).toUpperCase(),
+          rep: u.username === userId ? 'You' : 'Member',
+        }
+      }))
     })
   }, [])
 
@@ -589,7 +607,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
   const mentionResults = mentionQuery !== null
     ? knownUsers.filter(u =>
         u.username.toLowerCase().startsWith(mentionQuery.toLowerCase()) &&
-        u.username !== 'demo_user'
+        u.username !== displayName
       )
     : []
 
@@ -734,7 +752,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     if (!weaveId || weaveId === 'global') return
     fetchMessages(weaveId, activeChannelId).then((rows) => {
       setChannels(prev => prev.map(ch =>
-        ch.id !== activeChannelId ? ch : { ...ch, messages: rows.map(dbRowToMessage) }
+        ch.id !== activeChannelId ? ch : { ...ch, messages: rows.map(r => dbRowToMessage(r, userId)) }
       ))
     })
   }, [weaveId, activeChannelId])
@@ -747,7 +765,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
       if (!ready) return  // ignore the initial subscription event
       fetchMessages(weaveId, activeChannelId).then((rows) => {
         setChannels(prev => prev.map(ch =>
-          ch.id !== activeChannelId ? ch : { ...ch, messages: rows.map(dbRowToMessage) }
+          ch.id !== activeChannelId ? ch : { ...ch, messages: rows.map(r => dbRowToMessage(r, userId)) }
         ))
       })
     })
@@ -818,7 +836,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
         ),
       }
     ))
-    if (weaveId !== 'global') await toggleMessageUpvote(msgId)
+    if (weaveId !== 'global') { await toggleMessageUpvote(msgId, userId ?? undefined); if (!alreadyVoted) earn(1) }
     else if (!alreadyVoted) earn(1)
   }, [votedIds, activeChannelId, earn, weaveId])
 
@@ -838,7 +856,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
         ),
       }
     ))
-    if (weaveId !== 'global') await toggleReplyUpvote(replyId)
+    if (weaveId !== 'global') { await toggleReplyUpvote(replyId, userId ?? undefined); if (!alreadyVoted) earn(1) }
     else if (!alreadyVoted) earn(1)
   }, [replyVotedIds, activeChannelId, earn, weaveId])
 
@@ -847,7 +865,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
       ch.id !== activeChannelId ? ch : { ...ch, messages: ch.messages.filter(m => m.id !== msgId) }
     ))
     setConfirmDelete(null)
-    if (weaveId !== 'global') await deleteMessage(weaveId, msgId)
+    if (weaveId !== 'global') await deleteMessage(weaveId, msgId, userId ?? undefined)
     toast('Post deleted.', { style: { borderLeft: '3px solid #EF4444' } })
   }, [activeChannelId, weaveId])
 
@@ -861,7 +879,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
       }
     ))
     setConfirmDelete(null)
-    if (weaveId !== 'global') await deleteReply(msgId, replyId)
+    if (weaveId !== 'global') await deleteReply(msgId, replyId, userId ?? undefined)
     toast('Reply deleted.', { style: { borderLeft: '3px solid #EF4444' } })
   }, [activeChannelId, weaveId])
 
@@ -884,8 +902,8 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     if (replyingTo) {
       const reply: Reply = {
         id: genId(),
-        initials: 'D',
-        username: 'demo_user',
+        initials: displayName.slice(0, 2).toUpperCase(),
+        username: displayName,
         timestamp: 'just now',
         createdAt: Date.now(),
         text,
@@ -903,11 +921,11 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
         }
       ))
       setReplyingTo(null)
-      if (weaveId !== 'global') await postReply(replyingTo, text)
+      if (weaveId !== 'global') await postReply(replyingTo, text, userId ?? undefined)
       await new Promise(r => setTimeout(r, 400))
       setSending(false)
       earn(2)
-      toast.success('Reply posted!', { style: { borderLeft: '3px solid #22C55E' } })
+      toast.success('Reply posted! +2 LM', { style: { borderLeft: '3px solid #22C55E' } })
     } else {
       // /query: post into the first query channel (help), switch to it
       const targetChannelId = isQueryCommand
@@ -917,8 +935,8 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
 
       const newMsg: Message = {
         id: genId(),
-        initials: 'D',
-        username: 'demo_user',
+        initials: displayName.slice(0, 2).toUpperCase(),
+        username: displayName,
         timestamp: 'just now',
         createdAt: Date.now(),
         unread: false,
@@ -939,7 +957,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
         toast('🔀 Escalated to #' + targetChannel.name, { style: { borderLeft: '3px solid #6366f1' } })
       }
       if (weaveId !== 'global') {
-        const saved = await postMessage(weaveId, targetChannelId, text, isQueryCommand || targetChannel.isQuery)
+        const saved = await postMessage(weaveId, targetChannelId, text, isQueryCommand || targetChannel.isQuery, userId ?? undefined)
         if (saved) {
           setChannels(prev => prev.map(ch =>
             ch.id !== targetChannelId ? ch : {
@@ -962,7 +980,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
       toast.success(
         isQueryCommand ? 'Question escalated to #' + targetChannel.name + '! +5 LM'
           : targetChannel.isQuery ? 'Question posted! +5 LM'
-          : 'Message sent!',
+          : 'Message sent! +2 LM',
         { style: { borderLeft: '3px solid #22C55E' } }
       )
     }
@@ -977,8 +995,8 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     const isQ = newPostType === 'question' || targetChannel.isQuery
     const newMsg: Message = {
       id: genId(),
-      initials: 'D',
-      username: 'demo_user',
+      initials: displayName.slice(0, 2).toUpperCase(),
+      username: displayName,
       timestamp: 'just now',
       createdAt: Date.now(),
       unread: false,
@@ -997,7 +1015,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     // Switch to the channel the post went to
     setActiveChannelId(newPostChannelId)
     if (weaveId !== 'global') {
-      const saved = await postMessage(weaveId, newPostChannelId, text, isQ)
+      const saved = await postMessage(weaveId, newPostChannelId, text, isQ, userId ?? undefined)
       if (saved) {
         setChannels(prev => prev.map(ch =>
           ch.id !== newPostChannelId ? ch : {
@@ -1020,7 +1038,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     setNewPostText('')
     clearMedia('modal')
     earn(isQ ? 5 : 2)
-    toast.success(`Posted to #${targetChannel.name}!`, { style: { borderLeft: '3px solid #22C55E' } })
+    toast.success(`Posted to #${targetChannel.name}! ${isQ ? '+5 LM' : '+2 LM'}`, { style: { borderLeft: '3px solid #22C55E' } })
   }, [newPostText, newPostType, newPostChannelId, channels, earn, modalImages, modalPreview])
 
   // Promote a discussion message to the first available query channel
@@ -1641,7 +1659,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
             <StatusDot status="online" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-foreground truncate">demo_user</p>
+            <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
             <p className="text-[10px] text-primary truncate">Online</p>
           </div>
         </div>
