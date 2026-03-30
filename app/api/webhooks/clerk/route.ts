@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { Webhook } from 'svix'
 import { createClient } from '@supabase/supabase-js'
+import type { BillingSubscriptionItemWebhookEvent } from '@clerk/backend'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,10 +26,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  if (event.type === 'user.deleted') {
-    const userId = event.data.id
-    // Cascade deletes handle related rows via FK ON DELETE CASCADE
-    await supabase.from('users').delete().eq('username', userId)
+  const { type, data } = event
+
+  // subscriptionItem.active → user upgraded to a paid plan
+  if (type === 'subscriptionItem.active') {
+    const userId = data.payer_id ?? data.subscription?.payer_id
+    if (userId) {
+      await supabase
+        .from('users')
+        .update({ plan: 'pro', stripe_subscription_id: data.id })
+        .eq('username', userId)
+    }
+  }
+
+  // subscriptionItem.canceled / ended → user downgraded / cancelled
+  if (type === 'subscriptionItem.canceled' || type === 'subscriptionItem.ended') {
+    const userId = data.payer_id ?? data.subscription?.payer_id
+    if (userId) {
+      await supabase
+        .from('users')
+        .update({ plan: 'free', stripe_subscription_id: null })
+        .eq('username', userId)
+    }
+  }
+
+  // user.deleted — cascade handled by FK, but clean up explicitly
+  if (type === 'user.deleted') {
+    await supabase.from('users').delete().eq('username', data.id)
   }
 
   return NextResponse.json({ received: true })

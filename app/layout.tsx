@@ -5,6 +5,7 @@ import { Toaster } from 'sonner'
 import { ClerkProvider } from '@clerk/nextjs'
 import { LumensProvider } from '@/lib/lumens-context'
 import './globals.css'
+import { dark, shadcn } from '@clerk/ui/themes'
 
 const lexend = Lexend({
   subsets: ['latin'],
@@ -25,28 +26,9 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider appearance={{
-      variables: {
-        colorBackground: '#111111',
-        colorInputBackground: '#1a1a1a',
-        colorInputText: '#f9fafb',
-        colorText: '#f9fafb',
-        colorTextSecondary: '#9ca3af',
-        colorPrimary: '#22C55E',
-        colorNeutral: '#ffffff',
-        colorShimmer: '#1f1f1f',
-      },
+      theme: shadcn,
       elements: {
-        card: 'bg-[#111111] border border-[#1f1f1f] shadow-xl',
-        headerTitle: 'text-white',
-        headerSubtitle: 'text-gray-400',
-        socialButtonsBlockButton: 'bg-[#1a1a1a] border-[#2a2a2a] text-white hover:bg-[#222222]',
-        dividerLine: 'bg-[#2a2a2a]',
-        dividerText: 'text-gray-500',
-        formFieldLabel: 'text-gray-300',
-        formFieldInput: 'bg-[#1a1a1a] border-[#2a2a2a] text-white',
-        footerActionLink: 'text-[#22C55E] hover:text-[#16a34a]',
-        identityPreviewText: 'text-white',
-        identityPreviewEditButton: 'text-[#22C55E]',
+        formButtonPrimary: 'bg-primary text-primary-foreground hover:bg-primary/90 h-11',
       },
     }}>
       <html lang="en" className="dark">

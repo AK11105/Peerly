@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.7",
+    "@clerk/ui": "^1.2.4",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "1.2.12",
@@ -63,7 +64,6 @@
     "reactflow": "^11.11.4",
     "recharts": "2.15.0",
     "sonner": "^1.7.1",
-    "stripe": "^21.0.1",
     "svix": "^1.89.0",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
