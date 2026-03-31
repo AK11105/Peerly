@@ -2,63 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { CheckCircle, Clock } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { toast } from 'sonner'
 import { fetchAllWeaves } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@clerk/nextjs'
 import type { Weave } from '@/lib/types'
 
-const PROPOSALS = [
-  {
-    id: 1, proposer: 'alex_learns', timestamp: '2 hours ago',
-    change: {
-      old: 'Neural Networks are computational models inspired by biological neurons.',
-      new: 'Neural Networks are computational models inspired by biological neurons. They consist of interconnected layers of nodes.',
-    },
-    status: 'pending' as const,
-  },
-  {
-    id: 2, proposer: 'math_wizard', timestamp: '5 hours ago',
-    change: {
-      old: 'Linear Algebra: The study of vectors and matrices.',
-      new: 'Linear Algebra: The mathematical study of vectors, matrices, and linear transformations.',
-    },
-    status: 'pending' as const,
-  },
-  {
-    id: 3, proposer: 'physics_fan', timestamp: '1 day ago',
-    change: {
-      old: 'Quantum mechanics deals with atoms.',
-      new: 'Quantum mechanics is the branch of physics that describes phenomena at atomic and subatomic scales.',
-    },
-    status: 'approved' as const,
-  },
-]
-
-const ACTIVE_VOTES = [
-  { id: 1, proposal: 'Update Machine Learning definition', yesVotes: 24, noVotes: 6, minRequired: 30, userVoted: true, userChoice: 'yes' as const },
-  { id: 2, proposal: 'Add new Calculus section', yesVotes: 18, noVotes: 4, minRequired: 30, userVoted: false, userChoice: null as null },
-]
-
-const VERSION_HISTORY = [
-  { version: 5, date: 'Today 2:30 PM', summary: 'Updated definitions and examples', current: true },
-  { version: 4, date: 'Yesterday 10:15 AM', summary: 'Added new scaffold nodes', current: false },
-  { version: 3, date: '2 days ago', summary: 'Approved community contributions', current: false },
-  { version: 2, date: '3 days ago', summary: 'Initial structure refinement', current: false },
-  { version: 1, date: '1 week ago', summary: 'Weave created', current: false },
-]
+const PROPOSALS = []
+const ACTIVE_VOTES = []
+const VERSION_HISTORY = []
 
 export default function AdminPanel() {
   const { user } = useUser()
   const username = user?.id
   const [activeTab, setActiveTab] = useState('weaves')
-  const [proposals, setProposals] = useState(PROPOSALS)
-  const [votes, setVotes] = useState(ACTIVE_VOTES)
   const [myWeaves, setMyWeaves] = useState<Weave[]>([])
   const [selectedWeave, setSelectedWeave] = useState<Weave | null>(null)
   const [loadingWeaves, setLoadingWeaves] = useState(true)
@@ -82,16 +42,6 @@ export default function AdminPanel() {
       setLoadingWeaves(false)
     })()
   }, [username])
-
-  const handleApprove = (id: number) => {
-    setProposals(proposals.map((p) => p.id === id ? { ...p, status: 'approved' as const } : p))
-    toast.success('Proposal approved! Moving to vote...')
-  }
-
-  const handleVote = (id: number, choice: 'yes' | 'no') => {
-    setVotes(votes.map((v) => v.id === id ? { ...v, userVoted: true, userChoice: choice, yesVotes: choice === 'yes' ? v.yesVotes + 1 : v.yesVotes, noVotes: choice === 'no' ? v.noVotes + 1 : v.noVotes } : v))
-    toast.success(`Vote recorded: ${choice.toUpperCase()}`)
-  }
 
   const weave = selectedWeave
   const totalNodes = weave?.nodes.length ?? 0
@@ -224,129 +174,33 @@ export default function AdminPanel() {
             {/* Proposals Tab */}
             {activeTab === 'proposals' && (
               <div>
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-3xl font-bold text-foreground">
-                    Open Proposals{' '}
-                    <Badge className="ml-2 bg-primary/20 text-primary">
-                      {proposals.filter((p) => p.status === 'pending').length}
-                    </Badge>
-                  </h2>
-                </div>
-                <div className="space-y-4 max-w-3xl">
-                  {proposals.map((proposal) => (
-                    <Card key={proposal.id} className={`p-6 bg-card border transition-all ${proposal.status === 'approved' ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
-                      {proposal.status === 'approved' && (
-                        <div className="mb-3 flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-primary" />
-                          <span className="text-xs text-primary font-medium">Approved — put to vote</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground text-xs font-bold">
-                          {proposal.proposer[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{proposal.proposer}</p>
-                          <p className="text-xs text-muted-foreground">{proposal.timestamp}</p>
-                        </div>
-                      </div>
-                      <div className="mb-4">
-                        <p className="text-xs text-muted-foreground font-medium mb-2">Proposed change:</p>
-                        <div className="space-y-2 rounded bg-background p-3 text-sm">
-                          <p className="text-destructive line-through">{proposal.change.old}</p>
-                          <p className="text-primary">{proposal.change.new}</p>
-                        </div>
-                      </div>
-                      {proposal.status === 'pending' ? (
-                        <div className="flex gap-2">
-                          <Button onClick={() => handleApprove(proposal.id)} className="flex-1 bg-primary hover:bg-primary/90">Approve</Button>
-                          <Button variant="outline" className="flex-1 border-border">Request Changes</Button>
-                        </div>
-                      ) : (
-                        <div className="h-2 bg-background rounded-full overflow-hidden">
-                          <div className="h-full bg-primary w-1/3" />
-                        </div>
-                      )}
-                    </Card>
-                  ))}
-                </div>
+                <h2 className="text-3xl font-bold text-foreground mb-4">Open Proposals</h2>
+                <Card className="p-12 bg-card border-border text-center max-w-3xl">
+                  <p className="text-lg font-semibold text-foreground mb-2">Coming Soon</p>
+                  <p className="text-sm text-muted-foreground">Community edit proposals will appear here for admin review.</p>
+                </Card>
               </div>
             )}
 
             {/* Voting Tab */}
             {activeTab === 'voting' && (
               <div>
-                <h2 className="text-3xl font-bold text-foreground mb-8">Active Votes</h2>
-                <div className="space-y-4 max-w-3xl">
-                  {votes.map((vote) => {
-                    const totalVotes = vote.yesVotes + vote.noVotes
-                    const yesPercentage = (vote.yesVotes / totalVotes) * 100
-                    const readyToMerge = vote.yesVotes >= 15 && totalVotes >= vote.minRequired
-                    return (
-                      <Card key={vote.id} className="p-6 bg-card border-border">
-                        <h3 className="font-bold text-foreground mb-4">{vote.proposal}</h3>
-                        <div className="mb-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-muted-foreground">{vote.yesVotes} / {vote.minRequired} minimum</span>
-                            <span className="text-sm font-semibold text-primary">{yesPercentage.toFixed(0)}%</span>
-                          </div>
-                          <div className="h-2 bg-background rounded-full overflow-hidden">
-                            <div className="h-full bg-primary transition-all" style={{ width: `${yesPercentage}%` }} />
-                          </div>
-                        </div>
-                        {readyToMerge && (
-                          <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                            <p className="text-sm text-primary font-medium">Ready to merge</p>
-                          </div>
-                        )}
-                        {vote.userVoted ? (
-                          <div className="flex gap-2">
-                            <Button disabled variant="outline" className={`flex-1 border-border ${vote.userChoice === 'yes' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'}`}>
-                              Yes {vote.userChoice === 'yes' && '✓'}
-                            </Button>
-                            <Button disabled variant="outline" className={`flex-1 border-border ${vote.userChoice === 'no' ? 'bg-destructive/10 text-destructive' : 'text-muted-foreground'}`}>
-                              No {vote.userChoice === 'no' && '✓'}
-                            </Button>
-                            {readyToMerge && <Button className="flex-1 bg-primary hover:bg-primary/90">Merge</Button>}
-                          </div>
-                        ) : (
-                          <div className="flex gap-2">
-                            <Button onClick={() => handleVote(vote.id, 'yes')} className="flex-1 bg-primary hover:bg-primary/90">Vote Yes</Button>
-                            <Button onClick={() => handleVote(vote.id, 'no')} variant="outline" className="flex-1 border-border">Vote No</Button>
-                          </div>
-                        )}
-                      </Card>
-                    )
-                  })}
-                </div>
+                <h2 className="text-3xl font-bold text-foreground mb-4">Active Votes</h2>
+                <Card className="p-12 bg-card border-border text-center max-w-3xl">
+                  <p className="text-lg font-semibold text-foreground mb-2">Coming Soon</p>
+                  <p className="text-sm text-muted-foreground">Community voting on approved proposals will be available here.</p>
+                </Card>
               </div>
             )}
 
             {/* Version History Tab */}
             {activeTab === 'history' && (
               <div>
-                <h2 className="text-3xl font-bold text-foreground mb-8">Version History</h2>
-                <div className="space-y-3 max-w-2xl">
-                  {VERSION_HISTORY.map((version, i) => (
-                    <Card key={version.version} className={`p-4 bg-card border transition-all ${version.current ? 'border-primary/50 bg-primary/5' : 'border-border'}`}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            {i === 0 && <Clock className="h-4 w-4 text-muted-foreground" />}
-                            <span className="font-bold text-foreground">v{version.version}</span>
-                            {version.current && <Badge className="bg-primary/20 text-primary text-xs">Current</Badge>}
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-1">{version.date}</p>
-                          <p className="text-sm text-foreground">{version.summary}</p>
-                        </div>
-                        {!version.current && (
-                          <Button variant="outline" size="sm" className="border-border ml-4 shrink-0">Restore</Button>
-                        )}
-                      </div>
-                      {i < VERSION_HISTORY.length - 1 && <div className="ml-2 mt-3 h-6 border-l border-dashed border-border" />}
-                    </Card>
-                  ))}
-                </div>
+                <h2 className="text-3xl font-bold text-foreground mb-4">Version History</h2>
+                <Card className="p-12 bg-card border-border text-center max-w-3xl">
+                  <p className="text-lg font-semibold text-foreground mb-2">Coming Soon</p>
+                  <p className="text-sm text-muted-foreground">A full changelog of weave edits and restorable snapshots will appear here.</p>
+                </Card>
               </div>
             )}
           </div>
