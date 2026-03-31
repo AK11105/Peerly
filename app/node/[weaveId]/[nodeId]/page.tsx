@@ -35,7 +35,7 @@ function DifficultyBar({ level }: { level: number }) {
   )
 }
 
-async function generateExplainer(node: WeaveNode, topic: string): Promise<string> {
+async function generateExplainer(node: WeaveNode, topic: string, weaveId: string): Promise<string> {
   const res = await fetch('/api/nodes/explain', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -45,6 +45,8 @@ async function generateExplainer(node: WeaveNode, topic: string): Promise<string
       topic,
       depth: node.depth,
       difficulty: node.difficulty,
+      weaveId,
+      nodeId: node.id,
     }),
   })
   if (!res.ok) throw new Error('Failed')
@@ -73,7 +75,13 @@ export default function NodeDetailPage() {
       const n = w.nodes.find((n) => n.id === nodeId) ?? null
       setNode(n)
       setPageLoading(false)
-      if (n) loadExplainer(n, w.topic)
+      if (n) {
+        if ((n as any).explainer) {
+          setExplainer((n as any).explainer)
+        } else {
+          loadExplainer(n, w.topic)
+        }
+      }
     } catch {
       setPageLoading(false)
     }
@@ -85,7 +93,7 @@ export default function NodeDetailPage() {
     setExplainerLoading(true)
     setExplainerError(false)
     try {
-      setExplainer(await generateExplainer(n, topic))
+      setExplainer(await generateExplainer(n, topic, weaveId))
     } catch {
       setExplainerError(true)
     } finally {
@@ -249,7 +257,7 @@ export default function NodeDetailPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                   <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  Gemini is writing your explainer…
+                  AI is writing your explainer…
                 </div>
                 {[100, 90, 95, 80, 88, 75, 92].map((w, i) => (
                   <div key={i} className="h-3 bg-muted rounded animate-pulse" style={{ width: `${w}%`, animationDelay: `${i * 80}ms` }} />

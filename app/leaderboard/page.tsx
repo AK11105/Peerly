@@ -102,7 +102,10 @@ export default function LeaderboardPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="mx-auto max-w-5xl px-6 py-12 lg:px-8">
-        <h1 className="text-4xl font-bold text-foreground mb-12">Leaderboard</h1>
+        <h1 className="text-4xl font-bold text-foreground mb-3">Leaderboard</h1>
+        <p className="text-xs text-muted-foreground mb-12">
+          Rep = (scaffold fills × 100) + (other contributions × 40) + (lumens × 2)
+        </p>
 
         {/* Top 3 Podium */}
         {top3.length >= 3 && (

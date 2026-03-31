@@ -2,15 +2,12 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { isPro } from '@/lib/check-plan'
 import { createClient } from '@supabase/supabase-js'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { randomUUID } from 'crypto'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const model = genai.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
 function parseJSON(raw: string): any {
   const c = raw.trim()
@@ -43,8 +40,13 @@ If NO: {"gap_detected":false,"missing_concept":null,"scaffold_node":null}
 
 Output ONLY the JSON.`
 
-    const result = await model.generateContent(prompt)
-    const gap = parseJSON(result.response.text())
+    const res = await fetch('http://localhost:11434/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'llama3', messages: [{ role: 'user', content: prompt }], stream: false }),
+    })
+    const aiData = await res.json()
+    const gap = parseJSON(aiData.message.content)
 
     if (gap.gap_detected && gap.scaffold_node) {
       const { data: current } = await supabase.from('weaves').select('nodes').eq('id', weaveId).single()

@@ -293,8 +293,9 @@ select
   coalesce(l.balance, 0)                         as lumens,
   coalesce(c.total_contributions, 0)             as contributions,
   coalesce(c.scaffold_fills, 0)                  as scaffolds,
-  coalesce(c.total_contributions, 0) * 50
-    + coalesce(l.balance, 0) / 10               as rep
+  coalesce(c.scaffold_fills, 0) * 100
+    + (coalesce(c.total_contributions, 0) - coalesce(c.scaffold_fills, 0)) * 40
+    + coalesce(l.balance, 0) * 2                as rep
 from users u
 left join lumens l on l.username = u.username
 left join (
@@ -305,4 +306,4 @@ left join (
   from contributions
   group by username
 ) c on c.username = u.username
-order by rep desc;
+order by rep desc, lumens desc, username asc;

@@ -352,16 +352,14 @@ function CreateWeaveForm() {
             </div>
 
             {loading ? (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground mb-2">
-                  {'Gemini is building your Weave…'}
-                </p>
-                <div className="h-2 bg-background rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  {'AI is building your Weave…'}
                 </div>
+                {[100, 90, 95, 80, 88, 75, 92].map((w, i) => (
+                  <div key={i} className="h-3 bg-muted rounded animate-pulse" style={{ width: `${w}%`, animationDelay: `${i * 80}ms` }} />
+                ))}
               </div>
             ) : (
               <div className="flex gap-3">

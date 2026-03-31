@@ -4,55 +4,115 @@
 
 - Node.js 18+
 - A [Supabase](https://supabase.com) account (free tier is fine)
-- A [Google AI Studio](https://aistudio.google.com) API key (Gemini — free)
+- A [Clerk](https://clerk.com) account (free tier is fine)
 
 ---
 
-## First-time setup
+## 1. Supabase Setup
 
-### 1. Create a Supabase Project
+### Create a Project
 
 1. Go to [supabase.com](https://supabase.com) → **New project**
 2. Choose a name, region, and database password → **Create project**
 3. Wait ~1 minute for provisioning
 
-### 2. Run the Schema
+### Run the Schema
 
-1. In your Supabase dashboard, go to **SQL Editor → New query**
-2. Paste the entire contents of **`supabase/schema.sql`**
+1. In your Supabase dashboard → **SQL Editor → New query**
+2. Paste the entire contents of `supabase/schema.sql`
 3. Click **Run**
 
-> `supabase/schema.sql` is the canonical schema file (all 9 tables, RLS, functions, leaderboard view). It is also safe to use with `supabase db reset`.
+This creates all 9 tables, RLS policies, functions, and the leaderboard view.
 
-### 3. Get Your Supabase Keys
+### Get Your Keys
 
-**Project Settings → API:**
+Go to **Project Settings → API**:
 
-| Key | Where to find it |
-|-----|-----------------|
-| Project URL | "Project URL" field |
-| Anon key | `anon public` |
-| Service role key | `service_role` (keep secret) |
+| Variable | Where to find it |
+|----------|-----------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | "Project URL" field |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `anon public` key |
+| `SUPABASE_SERVICE_ROLE_KEY` | `service_role` key (keep secret) |
 
-### 4. Configure Environment Variables
+---
 
-Fill in `.env.local`:
+## 2. Clerk Setup
+
+### Create an Application
+
+1. Go to [dashboard.clerk.com](https://dashboard.clerk.com) → **Create application**
+2. Enable **Email** and/or **Google** sign-in → **Create application**
+
+### Get Your Keys
+
+Go to **API Keys**:
+
+| Variable | Where to find it |
+|----------|-----------------|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Publishable key |
+| `CLERK_SECRET_KEY` | Secret key |
+
+### Webhook Setup (for billing plan sync)
+
+**Local dev with ngrok:**
 
 ```bash
+# Install ngrok: https://ngrok.com/download
+ngrok http 3000
+# Copy the https URL, e.g. https://abc123.ngrok-free.app
+```
+
+In Clerk Dashboard → **Webhooks → Add endpoint**:
+- URL: `https://abc123.ngrok-free.app/api/webhooks/clerk`
+- Events: `subscriptionItem.active`, `subscriptionItem.canceled`, `subscriptionItem.ended`, `user.deleted`
+- Copy the **Signing Secret** → that's your `CLERK_WEBHOOK_SECRET`
+
+> ngrok gives a new URL on every restart — update the webhook endpoint in Clerk each time, or use a [free static ngrok domain](https://dashboard.ngrok.com/domains).
+
+### Billing / Pro Plan (optional)
+
+1. Clerk Dashboard → **Configure → Billing** → toggle **Enable Billing** on, set Payer type to **User**
+2. **Billing → Plans → Create plan**: Name `Pro`, Slug `pro`, Price `$9/month`
+
+---
+
+## 3. Environment Variables
+
+Create a `.env.local` file in the project root:
+
+```env
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Clerk — from dashboard.clerk.com → API Keys
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+CLERK_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/explore
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/explore
+
+# Supabase — from Project Settings → API
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# AI — from aistudio.google.com (free)
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
-### 5. Install & Run
+---
+
+## 4. Install & Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-### 6. Seed sample data
+App runs at [http://localhost:3000](http://localhost:3000).
+
+### Seed sample data (recommended)
 
 ```bash
 npm run seed
@@ -62,56 +122,15 @@ Populates 4 weaves (Machine Learning, Organic Chemistry, Roman History, Web Deve
 
 ---
 
-## Updating an existing database
-
-All statements in `supabase/schema.sql` use `create table if not exists` and `create or replace`, so **re-running the full file is safe** and is the recommended way to apply any updates.
-
-If you want to apply only the new additions from the latest session, run these sections from `supabase/schema.sql` in the SQL Editor:
-
-- The `contributions` table (if missing — needed for perspective contributions to persist)
-- The `leaderboard_view` (`create or replace view leaderboard_view ...`)
-- The `toggle_message_upvote` / `toggle_reply_upvote` functions (`create or replace function ...`)
-
----
-
-## What to test
-
-| Feature | How to test |
-|---------|-------------|
-| Weave creation | `/create` → generate a weave → should appear in `/explore` and `/my-weaves` |
-| Scaffold contribution | Open a weave → click a scaffold node → contribute → +50 LM, node turns community |
-| Add node | Open a weave → click `+` FAB → add a node → +25 LM |
-| Add perspective | Open a community node → "Add Perspective" → +25 LM |
-| Live gap detection | After contributing, a new scaffold may appear automatically (Realtime push) |
-| Community hub | Open a weave → right sidebar → post a message, reply, upvote |
-| Leaderboard | `/leaderboard` → should show seeded users with real rep scores |
-| Profile | `/profile` → contributions list, correct rep score, real global rank |
-| Admin panel | `/admin` → only shows weaves where `demo_user` is in `weave_admins` |
-| Lumens wallet | Navbar LM counter updates live; click it to redeem |
-
----
-
-## Deploy to Vercel
+## 5. Deploy to Vercel
 
 ```bash
 npm install -g vercel
 vercel
 ```
 
-Add the same four environment variables in **Vercel → Project → Settings → Environment Variables**. The Python backend (`/backend`) is no longer used and does not need to run.
+Add all the same env vars in **Vercel → Project → Settings → Environment Variables**.
 
----
+For production, swap in your live Clerk keys (`pk_live_` / `sk_live_`) from the Production Clerk instance, and update the webhook endpoint URL to your deployed domain.
 
-## How It Works
-
-| Feature | Implementation |
-|---------|---------------|
-| Database | Supabase Postgres (9 tables) |
-| Realtime | Supabase Realtime — weave page updates live via `useRealtimeWeave` hook; community hub subscribes per-channel |
-| Lumens wallet | `lumens` table, atomic `earn_lumens` / `spend_lumens` Postgres functions; balance synced via Realtime |
-| Contributions | `contributions` table — one row per scaffold fill, add node, or perspective; drives profile history and leaderboard |
-| Community | `community_messages` + `community_replies` + `community_upvotes`; delete requires ownership match |
-| Leaderboard | `leaderboard_view` — live Postgres view: `contributions * 50 + lumens / 10` |
-| Admin panel | Weave list sourced from `weave_admins` table (not `user_weaves`) |
-| AI generation | Google Gemini 2.0 Flash via Next.js API routes |
-| Gap detection | Fires server-side after node contributions; result pushed to clients via Realtime |
+> The Python backend (`/backend`) is not used and does not need to run.

@@ -1,15 +1,26 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { createClient } from '@supabase/supabase-js'
 
-const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const model = genai.getGenerativeModel({ model: 'gemini-2.0-flash' })
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+async function callAI(prompt: string): Promise<string> {
+  const res = await fetch('http://localhost:11434/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'llama3', messages: [{ role: 'user', content: prompt }], stream: false }),
+  })
+  const data = await res.json()
+  return data.message.content
+}
 
 export async function POST(req: Request) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, description, topic, depth = 0, difficulty = 1 } = await req.json()
+  const { title, description, topic, depth = 0, difficulty = 1, weaveId, nodeId } = await req.json()
 
   const level = ['foundational', 'core', 'intermediate', 'advanced', 'expert'][Math.min(depth, 4)]
   const diffLabel = ['', 'beginner', 'easy', 'intermediate', 'advanced', 'expert'][Math.min(difficulty, 5)]
@@ -31,8 +42,20 @@ Write a clear, engaging 400-600 word explanation of "${title}" for someone learn
 Plain English, concrete examples, no bullet lists in body, ## headers only.`
 
   try {
-    const result = await model.generateContent(prompt)
-    return NextResponse.json({ explainer: result.response.text() })
+    const explainer = await callAI(prompt)
+
+    // Persist to node so subsequent loads skip generation
+    if (weaveId && nodeId) {
+      const { data: weave } = await supabase.from('weaves').select('nodes').eq('id', weaveId).single()
+      if (weave) {
+        const updatedNodes = weave.nodes.map((n: any) =>
+          n.id === nodeId ? { ...n, explainer } : n
+        )
+        await supabase.from('weaves').update({ nodes: updatedNodes }).eq('id', weaveId)
+      }
+    }
+
+    return NextResponse.json({ explainer })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
