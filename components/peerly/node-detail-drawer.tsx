@@ -226,10 +226,10 @@ export function NodeDetailDrawer({
               </div>
             )}
 
-            {/* ── Contribution thread ── */}
+            {/* ── Contribution snippet ── */}
             {!node.is_scaffold && contributions.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 mb-3">
                   <BookOpen className="h-4 w-4 text-primary" />
                   <h3 className="text-xs font-bold text-foreground uppercase tracking-widest">
                     Explanations
@@ -238,10 +238,14 @@ export function NodeDetailDrawer({
                     {contributions.length}
                   </span>
                 </div>
-                <ContributionThread
-                  contributions={contributions}
-                  onChange={setContributions}
-                />
+                <div className="text-sm leading-relaxed text-muted-foreground bg-background rounded-xl p-4 border border-border">
+                  <p className="line-clamp-3">{contributions[0].text}</p>
+                  {(contributions.length > 1 || contributions[0].text.length > 150) && weaveId && (
+                    <Link href={`/node/${weaveId}/${node.id}`} onClick={onClose} className="text-xs text-primary mt-2 inline-block hover:underline">
+                      Read full explanation →
+                    </Link>
+                  )}
+                </div>
               </div>
             )}
 

@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAuth } from '@clerk/nextjs'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, BookOpen, Layers, BarChart2, Users,
-  Clock, Star, Sparkles, RefreshCw, ChevronRight
+  Clock, Star, Sparkles, RefreshCw, ChevronRight, ChevronDown
 } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
 import { ContributeModal } from '@/components/peerly/contribute-modal'
+import { ContributionThread, type Contribution } from '@/components/peerly/contribution-thread'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -35,6 +37,130 @@ function DifficultyBar({ level }: { level: number }) {
   )
 }
 
+
+function parseContributions(node: WeaveNode): Contribution[] {
+  const upvotesMap: Record<number, number> = (node as any).contribution_upvotes ?? {}
+  const rawBlocks = node.description.split('\n\n---\n\n')
+  return rawBlocks.map((block, idx) => {
+    const authorMatch = block.match(/^\*\*(.+?)\*\*:\s*/)
+    const author = authorMatch ? authorMatch[1] : (node.contributed_by ?? 'community')
+    const text = authorMatch ? block.slice(authorMatch[0].length) : block
+    const refMatch = text.match(/\nReference: (.+)$/)
+    return {
+      id: `${node.id}-contrib-${idx}`,
+      author,
+      text: refMatch ? text.slice(0, refMatch.index) : text,
+      link: refMatch ? refMatch[1] : undefined,
+      order: idx,
+      upvotes: upvotesMap[idx] ?? 0,
+    }
+  })
+}
+
+function ExplanationCard({
+  contrib, isTop, weaveId, nodeId, alreadyVoted, onUpvote,
+}: { contrib: Contribution; isTop: boolean; weaveId: string; nodeId: string; alreadyVoted: boolean; onUpvote: (order: number, newCount: number) => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const [voted, setVoted] = useState(alreadyVoted)
+
+  // Sync when userId resolves asynchronously (Clerk auth)
+  useEffect(() => {
+    setVoted(alreadyVoted)
+  }, [alreadyVoted])
+
+  const handleUpvote = async () => {
+    const wasVoted = voted
+    const optimistic = wasVoted ? (contrib.upvotes ?? 0) - 1 : (contrib.upvotes ?? 0) + 1
+    setVoted(!wasVoted)
+    onUpvote(contrib.order, optimistic)
+
+    const res = await fetch(`/api/weaves/${weaveId}/nodes/${nodeId}/upvote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blockIndex: contrib.order }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      onUpvote(contrib.order, data.upvotes)
+    } else {
+      setVoted(wasVoted)
+      onUpvote(contrib.order, contrib.upvotes ?? 0)
+    }
+  }
+
+  const preview = contrib.text.slice(0, 160).trimEnd() + (contrib.text.length > 160 ? '…' : '')
+
+  return (
+    <Card className="bg-card border-border overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary shrink-0">
+          {contrib.author[0].toUpperCase()}
+        </div>
+        <span className="text-sm font-medium text-foreground flex-1">@{contrib.author}</span>
+        {isTop && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">Top</span>
+        )}
+        <button
+          onClick={handleUpvote}
+          title={voted ? 'Remove upvote' : 'Upvote'}
+          className={`flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors ${
+            voted ? 'border-primary text-primary bg-primary/10 hover:bg-primary/20' : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
+          }`}
+        >
+          <Star className={`h-3 w-3 ${voted ? 'fill-primary' : ''}`} />
+          {contrib.upvotes ?? 0}
+        </button>
+        <button onClick={() => setExpanded(e => !e)} className="text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+
+      {/* Preview always visible */}
+      <div className="px-4 pb-3">
+        <p className="text-sm leading-6 text-muted-foreground">{expanded ? contrib.text : preview}</p>
+        {contrib.link && expanded && (
+          <a href={contrib.link} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-primary mt-2 hover:underline">
+            🔗 {contrib.link}
+          </a>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+function CommunityExplanations({ node, weaveId, nodeId, userId, upvoteCounts, onUpvote }: {
+  node: WeaveNode; weaveId: string; nodeId: string; userId: string
+  upvoteCounts: Record<number, number>; onUpvote: (order: number, newCount: number) => void
+}) {
+  const base = parseContributions(node)
+  const all = base
+    .map(c => ({ ...c, upvotes: upvoteCounts[c.order] ?? c.upvotes ?? 0 }))
+    .sort((a, b) => b.upvotes - a.upvotes)
+
+  if (all.length === 0) return null
+
+  return (
+    <div className="mb-10">
+      <div className="flex items-center gap-2 mb-4">
+        <BookOpen className="h-4 w-4 text-primary" />
+        <h2 className="text-lg font-bold text-foreground">Explanations</h2>
+        <span className="text-xs text-muted-foreground bg-background border border-border px-2 py-0.5 rounded-full">
+          {all.length}
+        </span>
+      </div>
+      <div className="space-y-2">
+        {all.map((contrib, i) => (
+          <ExplanationCard key={contrib.id} contrib={contrib} isTop={i === 0} weaveId={weaveId} nodeId={nodeId}
+            alreadyVoted={(((node as any).contribution_voters ?? []) as string[]).includes(`${contrib.order}:${userId}`)}
+            onUpvote={onUpvote}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 async function generateExplainer(node: WeaveNode, topic: string, weaveId: string): Promise<string> {
   const res = await fetch('/api/nodes/explain', {
     method: 'POST',
@@ -55,6 +181,7 @@ async function generateExplainer(node: WeaveNode, topic: string, weaveId: string
 }
 
 export default function NodeDetailPage() {
+  const { userId } = useAuth()
   const params = useParams()
   const router = useRouter()
   const weaveId = params?.weaveId as string
@@ -62,6 +189,7 @@ export default function NodeDetailPage() {
 
   const [weave, setWeave] = useState<Weave | null>(null)
   const [node, setNode] = useState<WeaveNode | null>(null)
+  const [upvoteCounts, setUpvoteCounts] = useState<Record<number, number>>({})
   const [explainer, setExplainer] = useState('')
   const [explainerLoading, setExplainerLoading] = useState(false)
   const [explainerError, setExplainerError] = useState(false)
@@ -74,8 +202,12 @@ export default function NodeDetailPage() {
       setWeave(w)
       const n = w.nodes.find((n) => n.id === nodeId) ?? null
       setNode(n)
-      setPageLoading(false)
       if (n) {
+        const base = parseContributions(n)
+        setUpvoteCounts(Object.fromEntries(base.map(c => [c.order, c.upvotes ?? 0])))
+      }
+      setPageLoading(false)
+      if (n && n.is_scaffold) {
         if ((n as any).explainer) {
           setExplainer((n as any).explainer)
         } else {
@@ -191,7 +323,7 @@ export default function NodeDetailPage() {
             <Badge variant="outline" className="text-xs">{STAGE_LABELS[node.depth] ?? 'Deep Dive'}</Badge>
           </div>
           <h1 className="text-3xl font-bold text-foreground mb-3 leading-tight">{node.title}</h1>
-          <p className="text-muted-foreground leading-relaxed">{node.description}</p>
+          <p className="text-muted-foreground leading-relaxed">{[...parseContributions(node)].map(c => ({ ...c, upvotes: upvoteCounts[c.order] ?? c.upvotes ?? 0 })).sort((a,b)=>b.upvotes-a.upvotes)[0]?.text ?? ''}</p>
         </div>
 
         {/* Scaffold contribute CTA — prominent banner */}
@@ -232,78 +364,81 @@ export default function NodeDetailPage() {
           ))}
         </div>
 
-        {/* AI Deep Dive explainer */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h2 className="text-lg font-bold text-foreground">Deep Dive</h2>
-              <span className="text-xs text-muted-foreground bg-background border border-border px-2 py-0.5 rounded-full">
-                AI generated
-              </span>
+        {/* Deep Dive — community content or AI explainer */}
+        {!node.is_scaffold ? (
+          <CommunityExplanations node={node} weaveId={weaveId} nodeId={nodeId} userId={userId ?? ''} upvoteCounts={upvoteCounts} onUpvote={(order, count) => setUpvoteCounts(prev => ({ ...prev, [order]: count }))} />
+        ) : (
+          <div className="mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <h2 className="text-lg font-bold text-foreground">Deep Dive</h2>
+                <span className="text-xs text-muted-foreground bg-background border border-border px-2 py-0.5 rounded-full">
+                  AI generated
+                </span>
+              </div>
+              {!explainerLoading && (
+                <button
+                  onClick={() => loadExplainer(node, weave.topic)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Regenerate
+                </button>
+              )}
             </div>
-            {!explainerLoading && (
-              <button
-                onClick={() => loadExplainer(node, weave.topic)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <RefreshCw className="h-3.5 w-3.5" /> Regenerate
-              </button>
-            )}
-          </div>
-
-          <Card className="p-6 bg-card border-border">
-            {explainerLoading ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                  <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  AI is writing your explainer…
+            <Card className="p-6 bg-card border-border">
+              {explainerLoading ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                    <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    AI is writing your explainer…
+                  </div>
+                  {[100, 90, 95, 80, 88, 75, 92].map((w, i) => (
+                    <div key={i} className="h-3 bg-muted rounded animate-pulse" style={{ width: `${w}%`, animationDelay: `${i * 80}ms` }} />
+                  ))}
                 </div>
-                {[100, 90, 95, 80, 88, 75, 92].map((w, i) => (
-                  <div key={i} className="h-3 bg-muted rounded animate-pulse" style={{ width: `${w}%`, animationDelay: `${i * 80}ms` }} />
-                ))}
-              </div>
-            ) : explainerError ? (
-              <div className="text-center py-8 space-y-3">
-                <p className="text-muted-foreground text-sm">Could not generate explainer. Please try again.</p>
-                <Button variant="outline" size="sm" onClick={() => loadExplainer(node, weave.topic)} className="border-border">
-                  Try again
-                </Button>
-              </div>
-            ) : explainer ? (
-              <div className="space-y-1">
-                {explainer.split('\n\n').filter(Boolean).map((para, i) => {
-                  if (para.startsWith('## ')) {
+              ) : explainerError ? (
+                <div className="text-center py-8 space-y-3">
+                  <p className="text-muted-foreground text-sm">Could not generate explainer. Please try again.</p>
+                  <Button variant="outline" size="sm" onClick={() => loadExplainer(node, weave.topic)} className="border-border">
+                    Try again
+                  </Button>
+                </div>
+              ) : explainer ? (
+                <div className="space-y-1">
+                  {explainer.split('\n\n').filter(Boolean).map((para, i) => {
+                    if (para.startsWith('## ')) {
+                      return (
+                        <h3 key={i} className="text-base font-bold text-foreground mt-6 mb-2 first:mt-0">
+                          {para.replace(/^##\s*/, '')}
+                        </h3>
+                      )
+                    }
+                    if (para.match(/^[-*] /m)) {
+                      return (
+                        <ul key={i} className="space-y-1.5 my-3 pl-1">
+                          {para.split('\n').filter(l => l.trim()).map((item, j) => (
+                            <li key={j} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                              <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2 shrink-0" />
+                              <span>{item.replace(/^[-*]\s*/, '')}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )
+                    }
                     return (
-                      <h3 key={i} className="text-base font-bold text-foreground mt-6 mb-2 first:mt-0">
-                        {para.replace(/^##\s*/, '')}
-                      </h3>
+                      <p key={i} className="text-sm leading-7 text-muted-foreground">
+                        {para}
+                      </p>
                     )
-                  }
-                  if (para.match(/^[-*] /m)) {
-                    return (
-                      <ul key={i} className="space-y-1.5 my-3 pl-1">
-                        {para.split('\n').filter(l => l.trim()).map((item, j) => (
-                          <li key={j} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                            <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2 shrink-0" />
-                            <span>{item.replace(/^[-*]\s*/, '')}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )
-                  }
-                  return (
-                    <p key={i} className="text-sm leading-7 text-muted-foreground">
-                      {para}
-                    </p>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm text-center py-4">No explainer yet.</p>
-            )}
-          </Card>
-        </div>
+                  })}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm text-center py-4">No explainer yet.</p>
+              )}
+            </Card>
+          </div>
+        )}
 
         {/* Difficulty */}
         <Card className="p-5 bg-card border-border mb-6">

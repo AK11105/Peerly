@@ -11,6 +11,7 @@ export interface Contribution {
   text: string
   link?: string
   order: number
+  upvotes?: number
 }
 
 interface ContributionThreadProps {

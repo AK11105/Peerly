@@ -283,6 +283,62 @@ begin
 end;
 $$;
 
+-- ── Node explanation upvote (atomic, dedup-safe) ─────────
+-- Returns the new upvote count for the block, NULL if not found.
+-- Toggles: adds vote if not present, removes if already voted.
+create or replace function upvote_node_explanation(
+  p_weave_id   text,
+  p_node_id    text,
+  p_voter_key  text,
+  p_block_index int
+)
+returns int language plpgsql security definer as $$
+declare
+  v_nodes   jsonb;
+  v_node    jsonb;
+  v_voters  jsonb;
+  v_upvotes jsonb;
+  v_new_count int;
+  v_idx     int;
+  v_already boolean;
+begin
+  select nodes into v_nodes from weaves where id = p_weave_id for update;
+  if not found then return null; end if;
+
+  select i into v_idx
+  from generate_series(0, jsonb_array_length(v_nodes) - 1) i
+  where v_nodes->i->>'id' = p_node_id
+  limit 1;
+  if v_idx is null then return null; end if;
+
+  v_node    := v_nodes->v_idx;
+  v_voters  := coalesce(v_node->'contribution_voters', '[]'::jsonb);
+  v_upvotes := coalesce(v_node->'contribution_upvotes', '{}'::jsonb);
+  v_already := v_voters @> to_jsonb(p_voter_key);
+  v_new_count := coalesce((v_upvotes->>p_block_index::text)::int, 0);
+
+  if v_already then
+    -- Remove vote
+    v_voters    := (select jsonb_agg(val) from jsonb_array_elements(v_voters) val where val <> to_jsonb(p_voter_key));
+    v_voters    := coalesce(v_voters, '[]'::jsonb);
+    v_new_count := greatest(0, v_new_count - 1);
+  else
+    -- Add vote
+    v_voters    := v_voters || to_jsonb(p_voter_key);
+    v_new_count := v_new_count + 1;
+  end if;
+
+  v_upvotes := jsonb_set(v_upvotes, array[p_block_index::text], to_jsonb(v_new_count));
+  v_node    := v_node
+    || jsonb_build_object('contribution_upvotes', v_upvotes)
+    || jsonb_build_object('contribution_voters', v_voters);
+  v_nodes   := jsonb_set(v_nodes, array[v_idx::text], v_node);
+
+  update weaves set nodes = v_nodes where id = p_weave_id;
+  return v_new_count;
+end;
+$$;
+
 -- ── Leaderboard view ──────────────────────────────────────
 -- Must drop before recreating — CREATE OR REPLACE fails if column list changes.
 drop view if exists leaderboard_view;
