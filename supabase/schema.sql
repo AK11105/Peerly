@@ -83,6 +83,7 @@ alter table users add column if not exists display_name text;
 alter table users add column if not exists plan text not null default 'free';
 alter table users add column if not exists stripe_customer_id text;
 alter table users add column if not exists stripe_subscription_id text;
+alter table users add column if not exists has_paid boolean not null default false;
 
 -- Ensure plan has the correct default and NOT NULL even if column pre-existed as nullable.
 alter table users alter column plan set default 'free';

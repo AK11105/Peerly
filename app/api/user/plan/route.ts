@@ -10,11 +10,10 @@ const supabase = createClient(
 export async function GET() {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { data } = await supabase.from('users').select('plan').eq('username', userId).single()
-  return NextResponse.json({ plan: data?.plan ?? 'free' })
+  const { data } = await supabase.from('users').select('plan, has_paid').eq('username', userId).single()
+  return NextResponse.json({ plan: data?.plan ?? 'free', has_paid: data?.has_paid ?? false })
 }
 
-/** POST — update plan. In production this should only be called by the billing webhook. */
 export async function POST(req: Request) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -24,10 +23,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
   }
 
-  await supabase
+  const { error } = await supabase
     .from('users')
-    .update({ plan, billing_subscription_id: plan === 'free' ? null : undefined })
+    .update({ plan })
     .eq('username', userId)
 
+  if (error) console.error('[plan] supabase error:', error)
   return NextResponse.json({ plan })
 }

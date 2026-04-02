@@ -1,3 +1,3 @@
-// Clerk Billing handles checkout and portal natively via its UI components.
-// No server-side billing functions needed — kept as a module for any future server-side checks.
+// Billing is handled via Razorpay one-time payments.
+// See /api/razorpay/create-order and /api/razorpay/verify
 export {}
