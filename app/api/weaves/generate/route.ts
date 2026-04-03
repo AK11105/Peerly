@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { isPro } from '@/lib/check-plan'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+import { callAI } from '@/lib/ai'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,16 +18,6 @@ function parseJSON(raw: string): any {
   const obj = cleaned.match(/(\{[\s\S]*\})|(\[[\s\S]*\])/)
   if (obj) try { return JSON.parse(obj[0]) } catch {}
   throw new Error('Could not parse JSON from AI response')
-}
-
-async function callAI(prompt: string): Promise<string> {
-  const res = await fetch('http://localhost:11434/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'llama3', messages: [{ role: 'user', content: prompt }], stream: false }),
-  })
-  const data = await res.json()
-  return data.message.content
 }
 
 export async function POST(req: Request) {

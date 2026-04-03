@@ -1,0 +1,754 @@
+openapi: 3.0.3
+info:
+  title: Peerly API
+  version: 1.0.0
+
+paths:
+
+  # ── Weaves ──────────────────────────────────────────────────────────────────
+
+  /api/weaves/generate:
+    post:
+      summary: Generate a new weave (AI-powered, Pro only)
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [topic]
+              properties:
+                topic:
+                  type: string
+                seed_nodes:
+                  type: array
+                  items:
+                    type: string
+                field:
+                  type: string
+                include_scaffolds:
+                  type: boolean
+                  default: true
+      responses:
+        "200":
+          description: Created weave with nodes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Weave"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProRequired"
+
+  /api/weaves/{weaveId}/nodes:
+    post:
+      summary: Add a new node to a weave (Pro only)
+      security: [{ clerk: [] }]
+      parameters:
+        - $ref: "#/components/parameters/weaveId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                contributed_by:
+                  type: string
+      responses:
+        "200":
+          description: Updated weave with gap detection result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  weave:
+                    $ref: "#/components/schemas/Weave"
+                  gap_detection:
+                    $ref: "#/components/schemas/GapDetection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/weaves/{weaveId}/contribute:
+    post:
+      summary: Fill a scaffold node (Pro only)
+      security: [{ clerk: [] }]
+      parameters:
+        - $ref: "#/components/parameters/weaveId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scaffold_node_id, title, description]
+              properties:
+                scaffold_node_id:
+                  type: string
+                title:
+                  type: string
+                description:
+                  type: string
+                contributed_by:
+                  type: string
+      responses:
+        "200":
+          description: Updated weave
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Weave"
+        "400":
+          description: Target is not a scaffold
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Nodes ───────────────────────────────────────────────────────────────────
+
+  /api/nodes/explain:
+    post:
+      summary: Generate an AI explanation for a node
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description, topic]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                topic:
+                  type: string
+                depth:
+                  type: integer
+                  default: 0
+                difficulty:
+                  type: integer
+                  default: 1
+                weaveId:
+                  type: string
+                nodeId:
+                  type: string
+      responses:
+        "200":
+          description: AI-generated explainer text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  explainer:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/weaves/{weaveId}/nodes/{nodeId}/contribute:
+    post:
+      summary: Add a perspective to an existing node (Pro only)
+      security: [{ clerk: [] }]
+      parameters:
+        - $ref: "#/components/parameters/weaveId"
+        - $ref: "#/components/parameters/nodeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                description:
+                  type: string
+                contributed_by:
+                  type: string
+      responses:
+        "200":
+          description: Updated weave
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Weave"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/weaves/{weaveId}/nodes/{nodeId}/upvote:
+    post:
+      summary: Upvote a node explanation block
+      security: [{ clerk: [] }]
+      parameters:
+        - $ref: "#/components/parameters/weaveId"
+        - $ref: "#/components/parameters/nodeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [blockIndex]
+              properties:
+                blockIndex:
+                  type: integer
+      responses:
+        "200":
+          description: Updated upvote count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upvotes:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Already voted
+
+  # ── Community ────────────────────────────────────────────────────────────────
+
+  /api/community/{weaveId}/messages:
+    get:
+      summary: Get community messages for a weave
+      parameters:
+        - $ref: "#/components/parameters/weaveId"
+        - name: channel
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of messages with replies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommunityMessage"
+    post:
+      summary: Post a community message
+      security: [{ clerk: [] }]
+      parameters:
+        - $ref: "#/components/parameters/weaveId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, text]
+              properties:
+                channel:
+                  type: string
+                text:
+                  type: string
+                is_question:
+                  type: boolean
+                  default: false
+      responses:
+        "200":
+          description: Created message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Delete a community message (owner only)
+      security: [{ clerk: [] }]
+      parameters:
+        - $ref: "#/components/parameters/weaveId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        "200":
+          description: Deleted message id
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/community/messages/{messageId}/replies:
+    post:
+      summary: Reply to a community message
+      security: [{ clerk: [] }]
+      parameters:
+        - $ref: "#/components/parameters/messageId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+      responses:
+        "200":
+          description: Created reply
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Delete a reply (owner only)
+      security: [{ clerk: [] }]
+      parameters:
+        - $ref: "#/components/parameters/messageId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+      responses:
+        "200":
+          description: Deleted reply id
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/community/messages/{messageId}/upvote:
+    post:
+      summary: Toggle upvote on a community message
+      security: [{ clerk: [] }]
+      parameters:
+        - $ref: "#/components/parameters/messageId"
+      responses:
+        "200":
+          description: Updated upvote count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upvotes:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/community/replies/{replyId}/upvote:
+    post:
+      summary: Toggle upvote on a community reply
+      security: [{ clerk: [] }]
+      parameters:
+        - $ref: "#/components/parameters/replyId"
+      responses:
+        "200":
+          description: Updated upvote count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upvotes:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Leaderboard ──────────────────────────────────────────────────────────────
+
+  /api/leaderboard:
+    get:
+      summary: Get top 100 users by lumens
+      responses:
+        "200":
+          description: Leaderboard entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ── Lumens ───────────────────────────────────────────────────────────────────
+
+  /api/lumens/spend:
+    post:
+      summary: Spend lumens
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount:
+                  type: integer
+      responses:
+        "200":
+          description: New balance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balance:
+                    type: integer
+        "400":
+          description: Insufficient lumens
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Redeem ───────────────────────────────────────────────────────────────────
+
+  /api/redeem:
+    post:
+      summary: Redeem lumens for a reward code
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rewardId]
+              properties:
+                rewardId:
+                  type: string
+                  enum: [coursera-1, datacamp-1, aws-1, notion-1, github-1]
+      responses:
+        "200":
+          description: Reward code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+        "400":
+          description: Invalid reward or insufficient lumens
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── User ─────────────────────────────────────────────────────────────────────
+
+  /api/user/plan:
+    get:
+      summary: Get current user's plan
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: User plan info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    type: string
+                    enum: [free, pro]
+                  has_paid:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Update current user's plan
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan]
+              properties:
+                plan:
+                  type: string
+                  enum: [free, pro]
+      responses:
+        "200":
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    type: string
+        "400":
+          description: Invalid plan
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/user/display-name:
+    post:
+      summary: Set display name for current user
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  minLength: 2
+                  maxLength: 30
+      responses:
+        "200":
+          description: Updated display name
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  displayName:
+                    type: string
+        "400":
+          description: Invalid display name
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Display name already taken
+
+  # ── Razorpay ─────────────────────────────────────────────────────────────────
+
+  /api/razorpay/create-order:
+    post:
+      summary: Create a Razorpay order for Pro upgrade (₹99)
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: Razorpay order details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                  amount:
+                    type: integer
+                    description: Amount in paise (9900 = ₹99)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/razorpay/verify:
+    post:
+      summary: Verify Razorpay payment and upgrade user to Pro
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [razorpay_order_id, razorpay_payment_id, razorpay_signature]
+              properties:
+                razorpay_order_id:
+                  type: string
+                razorpay_payment_id:
+                  type: string
+                razorpay_signature:
+                  type: string
+      responses:
+        "200":
+          description: Payment verified, user upgraded to Pro
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Invalid signature
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+# ── Reusable Components ────────────────────────────────────────────────────────
+
+components:
+  securitySchemes:
+    clerk:
+      type: http
+      scheme: bearer
+
+  parameters:
+    weaveId:
+      name: weaveId
+      in: path
+      required: true
+      schema:
+        type: string
+    nodeId:
+      name: nodeId
+      in: path
+      required: true
+      schema:
+        type: string
+    messageId:
+      name: messageId
+      in: path
+      required: true
+      schema:
+        type: string
+    replyId:
+      name: replyId
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Unauthorized
+    Forbidden:
+      description: Not authorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Forbidden
+    ProRequired:
+      description: Pro plan required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: pro_required
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
+  schemas:
+    Node:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        depth:
+          type: integer
+        difficulty:
+          type: integer
+        is_scaffold:
+          type: boolean
+        contributed_by:
+          type: string
+          nullable: true
+
+    Weave:
+      type: object
+      properties:
+        id:
+          type: string
+        topic:
+          type: string
+        field:
+          type: string
+          nullable: true
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+
+    GapDetection:
+      type: object
+      properties:
+        gap_detected:
+          type: boolean
+        missing_concept:
+          type: string
+          nullable: true
+        scaffold_node:
+          nullable: true
+          $ref: "#/components/schemas/Node"
+
+    CommunityMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        weave_id:
+          type: string
+        channel:
+          type: string
+        username:
+          type: string
+        display_name:
+          type: string
+          nullable: true
+        text:
+          type: string
+        is_question:
+          type: boolean
+        upvotes:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        community_replies:
+          type: array
+          items:
+            type: object

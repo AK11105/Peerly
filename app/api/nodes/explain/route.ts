@@ -1,20 +1,12 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { callAI } from '@/lib/ai'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-async function callAI(prompt: string): Promise<string> {
-  const res = await fetch('http://localhost:11434/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'llama3', messages: [{ role: 'user', content: prompt }], stream: false }),
-  })
-  const data = await res.json()
-  return data.message.content
-}
 
 export async function POST(req: Request) {
   const { userId } = await auth()

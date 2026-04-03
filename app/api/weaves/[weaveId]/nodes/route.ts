@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { isPro } from '@/lib/check-plan'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+import { callAI } from '@/lib/ai'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,13 +41,8 @@ If NO: {"gap_detected":false,"missing_concept":null,"scaffold_node":null}
 
 Output ONLY the JSON.`
 
-    const res = await fetch('http://localhost:11434/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'llama3', messages: [{ role: 'user', content: prompt }], stream: false }),
-    })
-    const aiData = await res.json()
-    const gap = parseJSON(aiData.message.content)
+    const raw = await callAI(prompt)
+    const gap = parseJSON(raw)
 
     if (gap.gap_detected && gap.scaffold_node) {
       const { data: current } = await supabase.from('weaves').select('nodes').eq('id', weaveId).single()
