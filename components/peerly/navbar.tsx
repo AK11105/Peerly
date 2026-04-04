@@ -60,10 +60,10 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
           {/* Logo + Weave Title */}
           <div className="flex items-center gap-3">
             <Link href="/explore" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-                <span className="text-xs font-bold text-primary-foreground">P</span>
+              <div className="flex h-7 w-14 items-center justify-center rounded-full bg-primary/20">
+                <span className="text-xs font-bold text-light-foreground">LO_OM </span>
               </div>
-              <span className="text-sm font-semibold tracking-wide text-foreground">Peerly</span>
+              {/* <span className="text-sm font-semibold tracking-wide text-foreground">Loom</span> */}
             </Link>
             {showWeaveTitle && (
               <>
