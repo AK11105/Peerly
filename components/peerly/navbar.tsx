@@ -3,11 +3,13 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Star, LogOut, User } from 'lucide-react'
+import { Star, LogOut, User, HelpCircle } from 'lucide-react'
 import { SignInButton, SignUpButton, useClerk, useUser } from '@clerk/nextjs'
 import { useLumens } from '@/lib/lumens-context'
 import { useCurrentUser } from '@/hooks/use-current-user'
+import { useOnboarding } from '@/hooks/use-onboarding'
 import { RedeemDialog } from './redeem-dialog'
+import { OnboardingTour } from './onboarding-tour'
 
 interface NavbarProps {
   showWeaveTitle?: string
@@ -18,10 +20,12 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
   const { signOut } = useClerk()
   const { user } = useUser()
   const currentUser = useCurrentUser()
+  const { isNewUser, markTourAsSeen } = useOnboarding()
   const { balance, recentChange, clearRecentChange } = useLumens()
   const [redeemOpen, setRedeemOpen] = useState(false)
   const [floatAnim, setFloatAnim] = useState<{ amount: number; type: 'spend' | 'earn' } | null>(null)
   const [avatarOpen, setAvatarOpen] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
   const avatarRef = useRef<HTMLDivElement>(null)
 
   const displayName = currentUser?.displayName ?? user?.firstName ?? ''
@@ -52,6 +56,14 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  // Auto-open tour for new users
+  useEffect(() => {
+    if (isNewUser) {
+      const timer = setTimeout(() => setTourOpen(true), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [isNewUser])
 
   return (
     <>
@@ -87,6 +99,14 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
 
           {/* Right side */}
           <div className="flex items-center gap-4">
+            {/* Tour/Help Button */}
+            <button onClick={() => setTourOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/50 hover:bg-card/80 transition-colors"
+            >
+              <HelpCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Tour</span>
+            </button>
+
             {/* LM Balance */}
             <button onClick={() => setRedeemOpen(true)}
               className="relative flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 hover:border-primary/50 hover:bg-card/80 transition-colors cursor-pointer"
@@ -167,6 +187,7 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
       </header>
 
       <RedeemDialog open={redeemOpen} onOpenChange={setRedeemOpen} />
+      <OnboardingTour open={tourOpen} onOpenChange={setTourOpen} onComplete={markTourAsSeen} />
     </>
   )
 }
