@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Loom by Peerly",
+  "version": "1.0.0",
+  "description": "Prefix any URL with loom. to instantly create a Peerly weave from that page.",
+  "permissions": ["webNavigation", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

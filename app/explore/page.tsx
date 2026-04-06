@@ -187,9 +187,14 @@ export default function ExplorePage() {
                     return (
                       <Card key={weave.id} className="p-5 bg-card border-border hover:border-primary/50 transition-all group">
                         <div className="flex items-start justify-between gap-2 mb-3">
-                          <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">
-                            <Highlight text={weave.topic} query={search} />
-                          </h3>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <h3 className="font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                              <Highlight text={weave.topic} query={search} />
+                            </h3>
+                            {weave.source === 'import' && (
+                              <Badge variant="outline" className="shrink-0 text-[10px] border-blue-500/40 text-blue-400">imported</Badge>
+                            )}
+                          </div>
                           <Badge variant="outline" className="shrink-0 text-xs">{totalNodes} nodes</Badge>
                         </div>
 

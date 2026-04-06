@@ -52,7 +52,7 @@ function DifficultyBar({ level }: { level: number }) {
 }
 
 function generateLearningPoints(description: string, title: string): string[] {
-  const sentences = description.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 15)
+  const sentences = (description ?? '').split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 15)
   const points: string[] = []
   if (sentences[0]) points.push(`Understand ${sentences[0].toLowerCase().replace(/^understand\s+/i, '')}`)
   if (sentences[1]) points.push(`Apply ${sentences[1].toLowerCase().replace(/^apply\s+/i, '')}`)
@@ -64,7 +64,7 @@ function generateLearningPoints(description: string, title: string): string[] {
  *  Perspectives appended by add-perspective-modal use separator "\n\n---\n\n"
  *  followed by "**author:** text". The first block is the original contribution. */
 function parseContributions(node: WeaveNode): Contribution[] {
-  const rawBlocks = node.description.split('\n\n---\n\n')
+  const rawBlocks = (node.description ?? '').split('\n\n---\n\n')
   return rawBlocks.map((block, idx) => {
     const authorMatch = block.match(/^\*\*(.+?)\*\*:\s*/)
     const author = authorMatch ? authorMatch[1] : (node.contributed_by ?? 'community')

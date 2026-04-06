@@ -11,7 +11,9 @@ export interface WeaveNode {
 export interface Weave {
   id: string
   topic: string
-  field? : string 
+  field?: string
+  source?: 'ai' | 'import'
+  source_url?: string | null
   nodes: WeaveNode[]
 }
 

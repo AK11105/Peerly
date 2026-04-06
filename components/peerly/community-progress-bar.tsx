@@ -17,8 +17,8 @@ function getProgressColor(pct: number): string {
 export function CommunityProgressBar({ nodes }: CommunityProgressBarProps) {
   const [animatedWidth, setAnimatedWidth] = useState(0)
 
-  const contributed = nodes.filter((n) => !n.is_scaffold).length
-  const total = nodes.length
+  const contributed = (nodes ?? []).filter((n) => !n.is_scaffold).length
+  const total = (nodes ?? []).length
   const pct = total === 0 ? 0 : Math.round((contributed / total) * 100)
   const color = getProgressColor(pct)
 

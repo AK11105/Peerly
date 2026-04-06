@@ -9,8 +9,14 @@ create table if not exists weaves (
   topic       text not null,
   field       text,
   nodes       jsonb not null default '[]'::jsonb,
+  source      text not null default 'ai',
+  source_url  text,
   created_at  timestamptz default now()
 );
+
+-- idempotent column additions for existing deployments
+alter table weaves add column if not exists source text not null default 'ai';
+alter table weaves add column if not exists source_url text;
 
 create table if not exists users (
   username     text primary key,

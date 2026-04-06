@@ -64,7 +64,7 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
 
   const nodesByDepth = useMemo(() => {
     const groups: Record<number, WeaveNode[]> = {}
-    for (const node of weave.nodes) {
+    for (const node of (weave.nodes ?? [])) {
       if (!groups[node.depth]) groups[node.depth] = []
       groups[node.depth].push(node)
     }
@@ -86,8 +86,14 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
         <div>
           <h1 className="text-balance text-xl font-semibold text-foreground">{weave.topic}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {weave.nodes.length} nodes &middot; {weave.nodes.filter((n) => !n.is_scaffold).length} contributed
+            {(weave.nodes ?? []).length} nodes &middot; {(weave.nodes ?? []).filter((n) => !n.is_scaffold).length} contributed
           </p>
+          {weave.source === 'import' && weave.source_url && (
+            <a href={weave.source_url} target="_blank" rel="noopener noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-xs text-blue-400 hover:underline">
+              Imported from {new URL(weave.source_url).hostname}
+            </a>
+          )}
         </div>
 
         {/* View toggle pill */}
