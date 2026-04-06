@@ -36,19 +36,25 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
         contributed_by: currentUser?.displayName ?? 'anonymous',
         user_id: currentUser?.id,
       })
-      await earn(25)
       setTitle('')
       setDescription('')
       setIsExpanded(false)
       onRefresh()
-      toast.success('+25 LM earned — Node added!', {
-        style: { borderLeft: '3px solid #22C55E' },
-      })
-    } catch (err) {
+      if (data?.status === 'pending') {
+        toast.info('Submitted for review — admin will approve shortly.', {
+          style: { borderLeft: '3px solid #6366F1' },
+        })
+      } else {
+        await earn(25)
+        toast.success('+25 LM earned — Node added!', { style: { borderLeft: '3px solid #22C55E' } })
+      }
+    } catch (err: any) {
       if (err instanceof ProRequiredError) {
         toast.info('Pro plan required.', { description: 'Paid plans are coming soon. Stay tuned!', action: { label: 'See Plans', onClick: () => window.location.href = '/pricing' } })
       } else {
-        toast.error('Something went wrong. Please try again.', { style: { borderLeft: '3px solid #EF4444' } })
+        toast.error(err?.message ?? 'Something went wrong. Please try again.', {
+          style: { borderLeft: '3px solid #EF4444' },
+        })
       }
     } finally {
       setIsLoading(false)
@@ -114,10 +120,10 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
                 disabled={isLoading}
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                {isLoading ? 'Adding…' : 'ADD TO WEAVE'}
+                {isLoading ? 'Checking…' : 'ADD TO WEAVE'}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
-                AI auto-inserts scaffolds for missing prereqs
+                AI reviews relevance · admin approves before going live
               </p>
             </div>
           </div>

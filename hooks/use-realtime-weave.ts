@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { fetchWeave } from '@/lib/api'
 import type { Weave } from '@/lib/types'
 
 export function useRealtimeWeave(weaveId: string, initial: Weave | null) {
@@ -9,19 +10,27 @@ export function useRealtimeWeave(weaveId: string, initial: Weave | null) {
     if (initial) setWeave(initial)
   }, [initial])
 
+  const reload = useCallback(async () => {
+    try {
+      const fresh = await fetchWeave(weaveId)
+      setWeave(fresh)
+    } catch {}
+  }, [weaveId])
+
   useEffect(() => {
     if (!weaveId) return
+    // Listen for any insert/update/delete on the nodes table for this weave
     const channel = supabase
-      .channel(`weave:${weaveId}`)
+      .channel(`nodes:${weaveId}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'weaves', filter: `id=eq.${weaveId}` },
-        (payload) => setWeave(payload.new as Weave)
+        { event: '*', schema: 'public', table: 'nodes', filter: `weave_id=eq.${weaveId}` },
+        () => reload()
       )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [weaveId])
+  }, [weaveId, reload])
 
   return weave
 }

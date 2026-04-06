@@ -36,15 +36,8 @@ Plain English, concrete examples, no bullet lists in body, ## headers only.`
   try {
     const explainer = await callAI(prompt)
 
-    // Persist to node so subsequent loads skip generation
     if (weaveId && nodeId) {
-      const { data: weave } = await supabase.from('weaves').select('nodes').eq('id', weaveId).single()
-      if (weave) {
-        const updatedNodes = weave.nodes.map((n: any) =>
-          n.id === nodeId ? { ...n, explainer } : n
-        )
-        await supabase.from('weaves').update({ nodes: updatedNodes }).eq('id', weaveId)
-      }
+      await supabase.from('nodes').update({ explainer } as any).eq('id', nodeId).eq('weave_id', weaveId)
     }
 
     return NextResponse.json({ explainer })

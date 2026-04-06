@@ -6,12 +6,14 @@ export interface WeaveNode {
   difficulty: number
   is_scaffold: boolean
   contributed_by: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  submitted_by?: string | null
 }
 
 export interface Weave {
   id: string
   topic: string
-  field? : string 
+  field?: string
   nodes: WeaveNode[]
 }
 
@@ -23,8 +25,7 @@ export interface AddNodePayload {
 }
 
 export interface AddNodeResponse {
-  gap_detected?: boolean
-  missing_concept?: string
+  status: 'pending' | 'approved'
   node?: WeaveNode
 }
 
