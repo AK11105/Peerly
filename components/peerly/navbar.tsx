@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Star, LogOut, User } from 'lucide-react'
-import { useClerk, useUser } from '@clerk/nextjs'
+import { SignInButton, SignUpButton, useClerk, useUser } from '@clerk/nextjs'
 import { useLumens } from '@/lib/lumens-context'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { RedeemDialog } from './redeem-dialog'
@@ -15,7 +15,6 @@ interface NavbarProps {
 
 export function Navbar({ showWeaveTitle }: NavbarProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const { signOut } = useClerk()
   const { user } = useUser()
   const currentUser = useCurrentUser()
@@ -26,7 +25,8 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
   const avatarRef = useRef<HTMLDivElement>(null)
 
   const displayName = currentUser?.displayName ?? user?.firstName ?? ''
-  const initial = displayName[0]?.toUpperCase() ?? '?'
+  const initial = user ? (displayName[0]?.toUpperCase() ?? 'U') : null
+  const isAuthenticated = !!user
 
   const navLinks = [
     { href: '/explore', label: 'Explore' },
@@ -100,32 +100,66 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
               )}
             </button>
 
-            {/* Avatar dropdown */}
+            {/* Avatar / Auth button */}
             <div ref={avatarRef} className="relative">
-              <button
-                onClick={() => setAvatarOpen(v => !v)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold hover:opacity-90 transition-opacity"
-              >
-                {initial}
-              </button>
-              {avatarOpen && (
-                <div className="absolute right-0 top-10 w-44 rounded-lg border border-border bg-card shadow-lg overflow-hidden z-50">
-                  <div className="px-3 py-2 border-b border-border">
-                    <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{user?.primaryEmailAddress?.emailAddress}</p>
-                  </div>
-                  <Link href="/profile" onClick={() => setAvatarOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-background transition-colors"
-                  >
-                    <User className="h-3.5 w-3.5" /> Profile
-                  </Link>
+              {isAuthenticated ? (
+                <>
                   <button
-                    onClick={() => signOut(() => router.push('/sign-in'))}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-background transition-colors"
+                    onClick={() => setAvatarOpen(v => !v)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold hover:opacity-90 transition-opacity"
                   >
-                    <LogOut className="h-3.5 w-3.5" /> Sign out
+                    {initial}
                   </button>
-                </div>
+                  {avatarOpen && (
+                    <div className="absolute right-0 top-10 w-44 rounded-lg border border-border bg-card shadow-lg overflow-hidden z-50">
+                      <div className="px-3 py-2 border-b border-border">
+                        <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{user?.primaryEmailAddress?.emailAddress}</p>
+                      </div>
+                      <Link href="/profile" onClick={() => setAvatarOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-background transition-colors"
+                      >
+                        <User className="h-3.5 w-3.5" /> Profile
+                      </Link>
+                      <button
+                        onClick={async () => {
+                          await signOut({ redirectUrl: '/sign-in' })
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-background transition-colors"
+                      >
+                        <LogOut className="h-3.5 w-3.5" /> Sign out
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setAvatarOpen(v => !v)}
+                    className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/50 hover:bg-card/80 transition-colors"
+                  >
+                    <User className="h-4 w-4" />
+                    Sign In
+                  </button>
+                  {avatarOpen && (
+                    <div className="absolute right-0 top-10 w-44 rounded-lg border border-border bg-card shadow-lg overflow-hidden z-50">
+                      <div className="px-3 py-2 border-b border-border">
+                        <p className="text-xs font-semibold text-foreground">Welcome to Peerly</p>
+                        <p className="text-[10px] text-muted-foreground">Sign in to start exploring</p>
+                      </div>
+                      <SignInButton mode="modal" signUpForceRedirectUrl="/explore">
+                        <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-background transition-colors">
+                          Sign In
+                        </button>
+                      </SignInButton>
+                      <SignUpButton mode="modal" signInForceRedirectUrl="/explore">
+                        <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-background transition-colors">
+                          Sign Up
+                        </button>
+                      </SignUpButton>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
