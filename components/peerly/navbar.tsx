@@ -20,7 +20,7 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
   const { signOut } = useClerk()
   const { user } = useUser()
   const currentUser = useCurrentUser()
-  const { isNewUser, markTourAsSeen } = useOnboarding()
+  const { shouldShowTour, isLoading, markTourAsSeen } = useOnboarding()
   const { balance, recentChange, clearRecentChange } = useLumens()
   const [redeemOpen, setRedeemOpen] = useState(false)
   const [floatAnim, setFloatAnim] = useState<{ amount: number; type: 'spend' | 'earn' } | null>(null)
@@ -57,13 +57,19 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Auto-open tour for new users
+  // Sync user to Supabase on mount
   useEffect(() => {
-    if (isNewUser) {
+    if (!user?.id) return
+    fetch('/api/sync-user', { method: 'POST' }).catch(() => {})
+  }, [user?.id])
+
+  // Auto-open tour only for users who haven't seen it yet
+  useEffect(() => {
+    if (!isLoading && shouldShowTour) {
       const timer = setTimeout(() => setTourOpen(true), 500)
       return () => clearTimeout(timer)
     }
-  }, [isNewUser])
+  }, [shouldShowTour, isLoading])
 
   return (
     <>
@@ -99,6 +105,15 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
 
           {/* Right side */}
           <div className="flex items-center gap-4">
+            {/* Debug: Reset Tour (dev only) */}
+           {/* <button onClick={resetTour}
+              className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/50 hover:bg-card/80 transition-colors"
+              title="Reset onboarding tour (dev only)"
+            >
+              <Bug className="h-4 w-4" />
+              <span className="hidden sm:inline">Reset Tour</span>
+            </button> */}
+
             {/* Tour/Help Button */}
             <button onClick={() => setTourOpen(true)}
               className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/50 hover:bg-card/80 transition-colors"

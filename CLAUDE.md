@@ -112,3 +112,7 @@ Required in `.env.local`:
 - TypeScript build errors ignored in `next.config.mjs` for faster iteration
 - Images unoptimized in dev (see `next.config.mjs`)
 - CORS allows all origins in development - tighten for production
+
+
+## Important update
+Backend is shifted to Supabase and the fastapi backend/ is no longer used

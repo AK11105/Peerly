@@ -1,4 +1,5 @@
-import { clerkClient } from '@clerk/nextjs/server'
+import { auth } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -6,8 +7,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-/** Upserts a Clerk user into Supabase, seeding display_name from Clerk if not already set. */
-export async function syncUser(userId: string): Promise<void> {
+export async function POST() {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   // Check if user already exists
   const { data: existing } = await supabase
     .from('users')
@@ -17,28 +20,36 @@ export async function syncUser(userId: string): Promise<void> {
 
   let displayName: string | null = existing?.display_name ?? null
 
-  // If no display_name yet, pull from Clerk
   if (!displayName) {
+    // Pull from Clerk
     try {
-      const clerk = await clerkClient()
+      const { createClerkClient } = await import('@clerk/nextjs/server')
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! })
       const clerkUser = await clerk.users.getUser(userId)
       displayName =
         clerkUser.username ??
         (clerkUser.firstName ? `${clerkUser.firstName}${clerkUser.lastName ? ' ' + clerkUser.lastName : ''}`.trim() : null) ??
         clerkUser.emailAddresses[0]?.emailAddress?.split('@')[0] ??
         null
-    } catch {}
+    } catch (e) {
+      console.error('[sync-user] Failed to fetch from Clerk:', e)
+    }
   }
 
-  // Upsert user - preserve has_seen_tour for existing users, set false for new users
-  await supabase
-    .from('users')
-    .upsert({
+  // Upsert user - new users get has_seen_tour = false, existing users keep their value
+  await supabase.from('users').upsert(
+    {
       username: userId,
       display_name: displayName,
       has_seen_tour: existing?.has_seen_tour ?? false
-    }, { onConflict: 'username' })
+    },
+    { onConflict: 'username' }
+  )
+
+  // Ensure lumens record exists
   await supabase
     .from('lumens')
     .upsert({ username: userId, balance: 0 }, { onConflict: 'username', ignoreDuplicates: true })
+
+  return NextResponse.json({ success: true, has_seen_tour: existing?.has_seen_tour ?? false })
 }
