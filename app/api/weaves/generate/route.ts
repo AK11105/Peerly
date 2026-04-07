@@ -27,6 +27,12 @@ export async function POST(req: Request) {
 
   const { topic, seed_nodes = [], field, include_scaffolds = true } = await req.json()
 
+  const weaveId = randomUUID()
+  const { error: weaveErr } = await supabase
+    .from('weaves')
+    .insert({ id: weaveId, topic, field: field ?? null, source: 'ai' })
+  if (weaveErr) return NextResponse.json({ error: weaveErr.message }, { status: 500 })
+
   let nodes: any[] = []
 
   if (include_scaffolds) {
@@ -43,24 +49,23 @@ Output ONLY a JSON array:
     const parsed = parseJSON(raw)
     nodes = parsed.map((item: any) => ({
       id: randomUUID(),
+      weave_id: weaveId,
       title: item.title,
       description: item.description,
       depth: Number(item.depth),
       difficulty: Number(item.difficulty),
       is_scaffold: true,
       contributed_by: null,
+      status: 'approved',
     }))
+
+    const { error: nodesErr } = await supabase.from('nodes').insert(nodes)
+    if (nodesErr) return NextResponse.json({ error: nodesErr.message }, { status: 500 })
   }
 
-  const weave = { id: randomUUID(), topic, field: field ?? null, nodes }
-  const { error } = await supabase.from('weaves').insert(weave)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await supabase.rpc('ensure_user', { p_username: userId })
+  await supabase.from('weave_admins').upsert({ weave_id: weaveId, username: userId })
+  await supabase.from('user_weaves').upsert({ username: userId, weave_id: weaveId })
 
-  // Register creator as admin
-  const creator = userId
-  await supabase.rpc('ensure_user', { p_username: creator })
-  await supabase.from('weave_admins').upsert({ weave_id: weave.id, username: creator })
-  await supabase.from('user_weaves').upsert({ username: creator, weave_id: weave.id })
-
-  return NextResponse.json(weave)
+  return NextResponse.json({ id: weaveId, topic, field: field ?? null, source: 'ai', nodes })
 }

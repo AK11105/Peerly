@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
-import { callAI } from '@/lib/ai'
+import { callAI, callAIStrong } from '@/lib/ai'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,7 +38,6 @@ function sortNodes(nodes: any[]) {
 
 const REDDIT_HEADERS = { 'User-Agent': 'peerly-loom/1.0' }
 
-// Fetch a single post's full content: selftext + top comments with scores
 async function fetchPostContent(permalink: string): Promise<string> {
   try {
     const res = await fetch(
@@ -75,8 +74,6 @@ async function fetchPostContent(permalink: string): Promise<string> {
   }
 }
 
-// ── Extractors ────────────────────────────────────────────
-
 async function extractRedditSubreddit(url: string, parsed: URL) {
   const jsonUrl = url.split('?')[0].replace(/\/?$/, '.json?limit=100')
   const res = await fetch(jsonUrl, { headers: REDDIT_HEADERS, signal: AbortSignal.timeout(8000) })
@@ -86,7 +83,6 @@ async function extractRedditSubreddit(url: string, parsed: URL) {
   const subredditName = listing?.data?.children?.[0]?.data?.subreddit_name_prefixed ?? parsed.pathname.replace(/\/$/, '')
   const posts = (listing?.data?.children ?? []).filter((p: any) => p.kind === 't3')
 
-  // Fetch full content for top 10 posts in parallel
   const enriched = await Promise.all(
     posts.slice(0, 10).map(async (p: any) => {
       const d = p.data
@@ -97,7 +93,6 @@ async function extractRedditSubreddit(url: string, parsed: URL) {
     })
   )
 
-  // Remaining posts as titles only
   const rest = posts.slice(10).map((p: any) => {
     const d = p.data
     return `- ${d.title}${d.link_flair_text ? ` [${d.link_flair_text}]` : ''}${d.score ? ` [${d.score}↑]` : ''}`
@@ -141,7 +136,6 @@ async function extractRedditPost(url: string) {
   return { title, text: parts.join('\n\n'), type: 'reddit_post' as const }
 }
 
-// Search: fetch top 5 posts' full content across Reddit
 async function extractRedditSearch(query: string) {
   const searchUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&limit=25&type=link`
   const res = await fetch(searchUrl, { headers: REDDIT_HEADERS, signal: AbortSignal.timeout(8000) })
@@ -159,11 +153,7 @@ async function extractRedditSearch(query: string) {
     })
   )
 
-  return {
-    title: query,
-    text: enriched.join('\n\n'),
-    type: 'search' as const,
-  }
+  return { title: query, text: enriched.join('\n\n'), type: 'search' as const }
 }
 
 async function extractGeneric(url: string, parsed: URL) {
@@ -176,8 +166,6 @@ async function extractGeneric(url: string, parsed: URL) {
     type: 'generic' as const,
   }
 }
-
-// ── Gap detection ─────────────────────────────────────────
 
 async function insertGapScaffolds(weaveId: string, nodes: any[]) {
   try {
@@ -199,26 +187,21 @@ Output ONLY valid JSON:
 
     const scaffolds = gaps.map((g: any) => ({
       id: randomUUID(),
+      weave_id: weaveId,
       title: g.title,
       description: g.description,
       depth: Number(g.depth),
       difficulty: Number(g.difficulty),
       is_scaffold: true,
       contributed_by: null,
+      status: 'approved',
     }))
 
-    const { data: current } = await supabase.from('weaves').select('nodes').eq('id', weaveId).single()
-    if (current) {
-      await supabase.from('weaves')
-        .update({ nodes: sortNodes([...current.nodes, ...scaffolds]) })
-        .eq('id', weaveId)
-    }
+    await supabase.from('nodes').insert(scaffolds)
   } catch (e) {
     console.error('[import gap detection]', e)
   }
 }
-
-// ── Main handler ──────────────────────────────────────────
 
 export async function POST(req: Request) {
   const { userId } = await auth()
@@ -226,6 +209,16 @@ export async function POST(req: Request) {
 
   const { url, query } = await req.json()
   if (!url && !query) return NextResponse.json({ error: 'url or query is required' }, { status: 400 })
+
+  // Deduplication: return existing weave if same source_url was already imported
+  if (url) {
+    const { data: existing } = await supabase
+      .from('weaves')
+      .select('id, topic, field, source, source_url, nodes(*)')
+      .eq('source_url', url)
+      .maybeSingle()
+    if (existing) return NextResponse.json(existing)
+  }
 
   let page: { title: string; text: string; type: string }
 
@@ -271,32 +264,39 @@ Minimum 6 nodes. Cover every distinct concept that appears in the content.
 Output ONLY valid JSON:
 {"topic":"<short descriptive name>","nodes":[{"title":"..","description":"..","depth":0,"difficulty":1}, ...]}`
 
-  const raw = await callAI(prompt)
+  const raw = await callAIStrong(prompt)
   const parsed2 = parseJSON(raw)
+
+  const weaveId = randomUUID()
+  const topic = parsed2.topic ?? page.title
+
+  const { error: weaveErr } = await supabase
+    .from('weaves')
+    .insert({ id: weaveId, topic, field: null, source: 'import', source_url: url ?? null })
+  if (weaveErr) return NextResponse.json({ error: weaveErr.message }, { status: 500 })
 
   const nodes = sortNodes(
     (parsed2.nodes ?? parsed2).map((item: any) => ({
       id: randomUUID(),
+      weave_id: weaveId,
       title: item.title,
       description: item.description,
       depth: Number(item.depth),
       difficulty: Number(item.difficulty),
       is_scaffold: false,
       contributed_by: userId,
+      status: 'approved',
     }))
   )
 
-  const topic = parsed2.topic ?? page.title
-  const weave = { id: randomUUID(), topic, field: null, source: 'import', source_url: url ?? null, nodes }
-
-  const { error } = await supabase.from('weaves').insert(weave)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const { error: nodesErr } = await supabase.from('nodes').insert(nodes)
+  if (nodesErr) return NextResponse.json({ error: nodesErr.message }, { status: 500 })
 
   await supabase.rpc('ensure_user', { p_username: userId })
-  await supabase.from('weave_admins').upsert({ weave_id: weave.id, username: userId })
-  await supabase.from('user_weaves').upsert({ username: userId, weave_id: weave.id })
+  await supabase.from('weave_admins').upsert({ weave_id: weaveId, username: userId })
+  await supabase.from('user_weaves').upsert({ username: userId, weave_id: weaveId })
 
-  insertGapScaffolds(weave.id, nodes)
+  insertGapScaffolds(weaveId, nodes)
 
-  return NextResponse.json(weave)
+  return NextResponse.json({ id: weaveId, topic, field: null, source: 'import', source_url: url ?? null, nodes })
 }

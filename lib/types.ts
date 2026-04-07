@@ -1,11 +1,16 @@
 export interface WeaveNode {
   id: string
+  weave_id: string
   title: string
   description: string
   depth: number
   difficulty: number
   is_scaffold: boolean
   contributed_by: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  submitted_by: string | null
+  explainer?: string | null
+  created_at?: string
 }
 
 export interface Weave {
@@ -15,6 +20,7 @@ export interface Weave {
   source?: 'ai' | 'import'
   source_url?: string | null
   nodes: WeaveNode[]
+  created_at?: string
 }
 
 export interface AddNodePayload {

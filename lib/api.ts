@@ -2,15 +2,26 @@ import { supabase } from './supabase'
 import type { Weave, AddNodePayload, ContributePayload } from './types'
 
 export async function fetchWeave(id: string): Promise<Weave> {
-  const { data, error } = await supabase.from('weaves').select('*').eq('id', id).single()
+  const { data, error } = await supabase
+    .from('weaves')
+    .select('*, nodes(*)')
+    .eq('id', id)
+    .single()
   if (error) throw new Error(error.message)
-  return data
+  const weave = data as Weave
+  weave.nodes = [...weave.nodes].sort((a, b) =>
+    a.depth - b.depth || a.difficulty - b.difficulty || Number(a.is_scaffold) - Number(b.is_scaffold)
+  )
+  return weave
 }
 
 export async function fetchAllWeaves(): Promise<Weave[]> {
-  const { data, error } = await supabase.from('weaves').select('*').order('created_at', { ascending: false })
+  const { data, error } = await supabase
+    .from('weaves')
+    .select('id, topic, field, source, source_url, created_at')
+    .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
-  return data ?? []
+  return (data ?? []).map(w => ({ ...w, nodes: [] }))
 }
 
 export class ProRequiredError extends Error {

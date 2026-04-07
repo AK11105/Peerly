@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@clerk/nextjs'
 import { Navbar } from '@/components/peerly/navbar'
 import { importWeave } from '@/lib/api'
 
@@ -11,20 +12,29 @@ function isURL(s: string) {
 
 function LoomImporter() {
   const router = useRouter()
+  const { isLoaded, isSignedIn } = useAuth()
   const searchParams = useSearchParams()
-  // supports both ?url= (from extension) and ?q= (from manual query)
   const url = searchParams.get('url') ?? ''
   const query = searchParams.get('q') ?? ''
   const input = url || query
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!isLoaded) return
+
+    if (!isSignedIn) {
+      const returnUrl = `/loom?${url ? `url=${encodeURIComponent(url)}` : `q=${encodeURIComponent(query)}`}`
+      router.replace(`/sign-in?redirect_url=${encodeURIComponent(returnUrl)}`)
+      return
+    }
+
     if (!input) { setError('No URL or query provided. Use /loom?url=https://... or /loom?q=your+topic'); return }
+
     const asQuery = !isURL(input)
     importWeave(input, asQuery)
       .then((weave) => router.replace(`/weave/${weave.id}`))
       .catch((e) => setError(e.message ?? 'Import failed'))
-  }, [input, router])
+  }, [isLoaded, isSignedIn, input, router, url, query])
 
   return (
     <div className="min-h-screen bg-background">
@@ -42,7 +52,7 @@ function LoomImporter() {
             <>
               <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
               <p className="text-muted-foreground text-sm">
-                Weaving from <span className="text-foreground font-mono text-xs">{input}</span>…
+                {!isLoaded || !isSignedIn ? 'Checking auth…' : <>Weaving from <span className="text-foreground font-mono text-xs">{input}</span>…</>}
               </p>
             </>
           )}

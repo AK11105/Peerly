@@ -370,3 +370,38 @@ left join (
   group by username
 ) c on c.username = u.username
 order by rep desc, lumens desc, username asc;
+
+-- ── Node upvotes (replaces JSONB contribution_upvotes/voters) ────────────────
+alter table nodes add column if not exists upvotes int not null default 0;
+
+create table if not exists node_upvotes (
+  node_id  uuid references nodes(id) on delete cascade,
+  username text references users(username) on delete cascade,
+  primary key (node_id, username)
+);
+
+alter table node_upvotes enable row level security;
+drop policy if exists "public read"   on node_upvotes;
+drop policy if exists "public insert" on node_upvotes;
+drop policy if exists "public delete" on node_upvotes;
+create policy "public read"   on node_upvotes for select using (true);
+create policy "public insert" on node_upvotes for insert with check (true);
+create policy "public delete" on node_upvotes for delete using (true);
+
+create or replace function increment_node_upvotes(p_node_id uuid)
+returns int language plpgsql security definer as $$
+declare v_count int;
+begin
+  update nodes set upvotes = upvotes + 1 where id = p_node_id returning upvotes into v_count;
+  return v_count;
+end;
+$$;
+
+create or replace function decrement_node_upvotes(p_node_id uuid)
+returns int language plpgsql security definer as $$
+declare v_count int;
+begin
+  update nodes set upvotes = greatest(0, upvotes - 1) where id = p_node_id returning upvotes into v_count;
+  return v_count;
+end;
+$$;

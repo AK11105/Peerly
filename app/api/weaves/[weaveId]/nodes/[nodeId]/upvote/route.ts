@@ -7,6 +7,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Requires these tables (add to schema if not present):
+//   node_upvotes (node_id uuid FK nodes.id, username text, primary key (node_id, username))
+//   nodes.upvotes int not null default 0
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ weaveId: string; nodeId: string }> }
@@ -14,21 +18,25 @@ export async function POST(
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { weaveId, nodeId } = await params
-  const { blockIndex } = await req.json()
-  const voterKey = `${blockIndex}:${userId}`
+  const { nodeId } = await params
 
-  // Atomic read-check-write using Postgres to avoid race conditions
-  const { data, error } = await supabase.rpc('upvote_node_explanation', {
-    p_weave_id: weaveId,
-    p_node_id: nodeId,
-    p_voter_key: voterKey,
-    p_block_index: blockIndex,
-  })
+  // Check if already voted
+  const { data: existing } = await supabase
+    .from('node_upvotes')
+    .select('node_id')
+    .eq('node_id', nodeId)
+    .eq('username', userId)
+    .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (data === null) return NextResponse.json({ error: 'Weave or node not found' }, { status: 404 })
-  if (data === -1) return NextResponse.json({ error: 'already_voted' }, { status: 409 })
-
-  return NextResponse.json({ upvotes: data })
+  if (existing) {
+    // Toggle off
+    await supabase.from('node_upvotes').delete().eq('node_id', nodeId).eq('username', userId)
+    const { data } = await supabase.rpc('decrement_node_upvotes', { p_node_id: nodeId })
+    return NextResponse.json({ upvotes: data, voted: false })
+  } else {
+    // Toggle on
+    await supabase.from('node_upvotes').insert({ node_id: nodeId, username: userId })
+    const { data } = await supabase.rpc('increment_node_upvotes', { p_node_id: nodeId })
+    return NextResponse.json({ upvotes: data, voted: true })
+  }
 }

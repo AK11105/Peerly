@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Weave } from '@/lib/types'
+import type { Weave, WeaveNode } from '@/lib/types'
 
 export function useRealtimeWeave(weaveId: string, initial: Weave | null) {
   const [weave, setWeave] = useState<Weave | null>(initial)
@@ -11,12 +11,29 @@ export function useRealtimeWeave(weaveId: string, initial: Weave | null) {
 
   useEffect(() => {
     if (!weaveId) return
+
     const channel = supabase
-      .channel(`weave:${weaveId}`)
+      .channel(`nodes:${weaveId}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'weaves', filter: `id=eq.${weaveId}` },
-        (payload) => setWeave(payload.new as Weave)
+        { event: '*', schema: 'public', table: 'nodes', filter: `weave_id=eq.${weaveId}` },
+        (payload) => {
+          setWeave(prev => {
+            if (!prev) return prev
+            const node = payload.new as WeaveNode
+
+            if (payload.eventType === 'INSERT') {
+              return { ...prev, nodes: [...prev.nodes, node].sort((a, b) => a.depth - b.depth || a.difficulty - b.difficulty) }
+            }
+            if (payload.eventType === 'UPDATE') {
+              return { ...prev, nodes: prev.nodes.map(n => n.id === node.id ? node : n) }
+            }
+            if (payload.eventType === 'DELETE') {
+              return { ...prev, nodes: prev.nodes.filter(n => n.id !== (payload.old as WeaveNode).id) }
+            }
+            return prev
+          })
+        }
       )
       .subscribe()
 

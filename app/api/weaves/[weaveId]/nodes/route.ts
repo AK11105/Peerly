@@ -20,21 +20,23 @@ function parseJSON(raw: string): any {
   throw new Error('Could not parse JSON')
 }
 
-function sortNodes(nodes: any[]) {
-  return [...nodes].sort((a, b) =>
-    a.depth - b.depth || a.difficulty - b.difficulty || Number(a.is_scaffold) - Number(b.is_scaffold)
-  )
-}
-
-async function runGapDetection(weaveId: string, nodes: any[], title: string, description: string) {
+async function runGapDetection(weaveId: string, newTitle: string, newDescription: string) {
   try {
-    const summary = nodes.map((n: any) => `- [${n.depth}/${n.difficulty}] ${n.title}`).join('\n')
+    const { data: nodes } = await supabase
+      .from('nodes')
+      .select('depth, difficulty, title')
+      .eq('weave_id', weaveId)
+      .eq('status', 'approved')
+
+    if (!nodes?.length) return
+
+    const summary = nodes.map((n) => `- [${n.depth}/${n.difficulty}] ${n.title}`).join('\n')
     const prompt = `Review this learning map for missing prerequisites.
 
 Existing nodes:
 ${summary}
 
-New node: "${title}" — ${description}
+New node: "${newTitle}" — ${newDescription}
 
 If YES: {"gap_detected":true,"missing_concept":"name","scaffold_node":{"title":"short title","description":"1-2 sentences.","depth":<int>,"difficulty":<1-5>}}
 If NO: {"gap_detected":false,"missing_concept":null,"scaffold_node":null}
@@ -45,16 +47,18 @@ Output ONLY the JSON.`
     const gap = parseJSON(raw)
 
     if (gap.gap_detected && gap.scaffold_node) {
-      const { data: current } = await supabase.from('weaves').select('nodes').eq('id', weaveId).single()
-      if (current) {
-        const s = gap.scaffold_node
-        const scaffold = {
-          id: randomUUID(), title: s.title, description: s.description,
-          depth: Number(s.depth), difficulty: Number(s.difficulty),
-          is_scaffold: true, contributed_by: null,
-        }
-        await supabase.from('weaves').update({ nodes: sortNodes([...current.nodes, scaffold]) }).eq('id', weaveId)
-      }
+      const s = gap.scaffold_node
+      await supabase.from('nodes').insert({
+        id: randomUUID(),
+        weave_id: weaveId,
+        title: s.title,
+        description: s.description,
+        depth: Number(s.depth),
+        difficulty: Number(s.difficulty),
+        is_scaffold: true,
+        contributed_by: null,
+        status: 'approved',
+      })
     }
   } catch (e) {
     console.error('[gap detection]', e)
@@ -69,32 +73,38 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
   const { weaveId } = await params
   const body = await req.json()
 
-  const { data: weave, error } = await supabase.from('weaves').select('*').eq('id', weaveId).single()
-  if (error || !weave) return NextResponse.json({ error: 'Weave not found' }, { status: 404 })
+  const { data: existingNodes } = await supabase
+    .from('nodes')
+    .select('depth')
+    .eq('weave_id', weaveId)
+    .eq('status', 'approved')
+
+  if (!existingNodes) return NextResponse.json({ error: 'Weave not found' }, { status: 404 })
+
+  const maxDepth = existingNodes.reduce((max, n) => Math.max(max, n.depth), 0)
 
   const newNode = {
     id: randomUUID(),
+    weave_id: weaveId,
     title: body.title,
     description: body.description,
-    depth: Math.max(...weave.nodes.map((n: any) => n.depth), 0) + 1,
+    depth: maxDepth + 1,
     difficulty: 3,
     is_scaffold: false,
-    contributed_by: body.contributed_by ?? 'anonymous',
+    contributed_by: body.contributed_by ?? userId,
+    status: 'approved',
   }
 
-  const updatedNodes = sortNodes([...weave.nodes, newNode])
-  const { error: updateErr } = await supabase.from('weaves').update({ nodes: updatedNodes }).eq('id', weaveId)
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
+  const { error } = await supabase.from('nodes').insert(newNode)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await supabase.rpc('ensure_user', { p_username: userId })
-  await supabase.from('contributions').insert({ weave_id: weaveId, node_id: newNode.id, username: userId, type: 'add_node', lumens_earned: 25 })
+  await supabase.from('contributions').insert({
+    weave_id: weaveId, node_id: newNode.id, username: userId, type: 'add_node', lumens_earned: 25,
+  })
   await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 25 })
 
-  // Fire-and-forget gap detection — Supabase Realtime will push the scaffold to clients
-  runGapDetection(weaveId, updatedNodes, body.title, body.description)
+  runGapDetection(weaveId, body.title, body.description)
 
-  return NextResponse.json({
-    weave: { ...weave, nodes: updatedNodes },
-    gap_detection: { gap_detected: false, missing_concept: null, scaffold_node: null },
-  })
+  return NextResponse.json({ node: newNode })
 }

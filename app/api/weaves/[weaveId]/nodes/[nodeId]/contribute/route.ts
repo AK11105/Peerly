@@ -19,24 +19,32 @@ export async function POST(
   const { weaveId, nodeId } = await params
   const body = await req.json()
 
-  const { data: weave, error } = await supabase.from('weaves').select('*').eq('id', weaveId).single()
-  if (error || !weave) return NextResponse.json({ error: 'Weave not found' }, { status: 404 })
+  const { data: target, error: fetchErr } = await supabase
+    .from('nodes')
+    .select('description')
+    .eq('id', nodeId)
+    .eq('weave_id', weaveId)
+    .single()
 
-  const target = weave.nodes.find((n: any) => n.id === nodeId)
-  if (!target) return NextResponse.json({ error: 'Node not found' }, { status: 404 })
+  if (fetchErr || !target) return NextResponse.json({ error: 'Node not found' }, { status: 404 })
 
-  const updatedNode = {
-    ...target,
-    description: `${target.description}\n\n---\n\n**${body.contributed_by ?? 'anonymous'}:** ${body.description}`,
-  }
+  const author = body.contributed_by ?? userId
+  const appended = `${target.description}\n\n---\n\n**${author}:** ${body.description}`
 
-  const updatedNodes = weave.nodes.map((n: any) => n.id === nodeId ? updatedNode : n)
-  const { error: updateErr } = await supabase.from('weaves').update({ nodes: updatedNodes }).eq('id', weaveId)
+  const { data: updated, error: updateErr } = await supabase
+    .from('nodes')
+    .update({ description: appended })
+    .eq('id', nodeId)
+    .select()
+    .single()
+
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
 
   await supabase.rpc('ensure_user', { p_username: userId })
-  await supabase.from('contributions').insert({ weave_id: weaveId, node_id: nodeId, username: userId, type: 'perspective', lumens_earned: 25 })
+  await supabase.from('contributions').insert({
+    weave_id: weaveId, node_id: nodeId, username: userId, type: 'perspective', lumens_earned: 25,
+  })
   await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 25 })
 
-  return NextResponse.json({ ...weave, nodes: updatedNodes })
+  return NextResponse.json(updated)
 }
