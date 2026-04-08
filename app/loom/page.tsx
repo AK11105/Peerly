@@ -52,7 +52,12 @@ function LoomImporter() {
             <>
               <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
               <p className="text-muted-foreground text-sm">
-                {!isLoaded || !isSignedIn ? 'Checking auth…' : <>Weaving from <span className="text-foreground font-mono text-xs">{input}</span>…</>}
+                {!isLoaded || !isSignedIn
+                  ? 'Checking auth…'
+                  : url
+                    ? <>Weaving from <span className="text-foreground font-mono text-xs">{input}</span>…</>
+                    : <>Searching Reddit for <span className="text-foreground font-mono text-xs">{input}</span>…</>
+                }
               </p>
             </>
           )}

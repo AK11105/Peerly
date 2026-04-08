@@ -7,5 +7,10 @@
   "host_permissions": ["*://loom.*/*"],
   "background": {
     "service_worker": "background.js"
+  },
+  "icons": { "32": "icon32.png", "48": "icon32.png", "128": "icon32.png" },
+  "action": {
+    "default_title": "Loom by Peerly",
+    "default_icon": "icon32.png"
   }
 }

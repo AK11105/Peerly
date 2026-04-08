@@ -3,22 +3,14 @@ import { auth } from '@clerk/nextjs/server'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { callAI, callAIStrong } from '@/lib/ai'
+import { parseJSON } from '@/lib/parse-json'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-function parseJSON(raw: string): any {
-  const cleaned = raw.trim()
-  try { return JSON.parse(cleaned) } catch {}
-  const fence = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fence) try { return JSON.parse(fence[1].trim()) } catch {}
-  const obj = cleaned.match(/(\{[\s\S]*\})|(\[[\s\S]*\])/)
-  if (obj) try { return JSON.parse(obj[0]) } catch {}
-  console.error('[import] AI raw response:', cleaned.slice(0, 500))
-  throw new Error('Could not parse JSON from AI response')
-}
+const LUMENS_PER_IMPORT = 10
 
 function stripHtml(html: string): string {
   return html
@@ -275,6 +267,8 @@ Output ONLY valid JSON:
     .insert({ id: weaveId, topic, field: null, source: 'import', source_url: url ?? null })
   if (weaveErr) return NextResponse.json({ error: weaveErr.message }, { status: 500 })
 
+  // Nodes are AI-generated from scraped content — mark as scaffolds for community to verify/improve.
+  // contributed_by is null (not authored by the importer).
   const nodes = sortNodes(
     (parsed2.nodes ?? parsed2).map((item: any) => ({
       id: randomUUID(),
@@ -283,8 +277,8 @@ Output ONLY valid JSON:
       description: item.description,
       depth: Number(item.depth),
       difficulty: Number(item.difficulty),
-      is_scaffold: false,
-      contributed_by: userId,
+      is_scaffold: true,
+      contributed_by: null,
       status: 'approved',
     }))
   )
@@ -295,6 +289,12 @@ Output ONLY valid JSON:
   await supabase.rpc('ensure_user', { p_username: userId })
   await supabase.from('weave_admins').upsert({ weave_id: weaveId, username: userId })
   await supabase.from('user_weaves').upsert({ username: userId, weave_id: weaveId })
+
+  // Award lumens to the importer for seeding the weave
+  await supabase.from('contributions').insert({
+    weave_id: weaveId, node_id: null, username: userId, type: 'import', lumens_earned: LUMENS_PER_IMPORT,
+  })
+  await supabase.rpc('earn_lumens', { p_username: userId, p_amount: LUMENS_PER_IMPORT })
 
   insertGapScaffolds(weaveId, nodes)
 

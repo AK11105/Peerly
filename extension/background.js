@@ -1,4 +1,4 @@
-const PEERLY_BASE = 'https://cary-funnier-lauryn.ngrok-free.dev/'
+const PEERLY_BASE = 'https://cary-funnier-lauryn.ngrok-free.dev'
 
 // Firefox uses `browser`, Chrome uses `chrome`
 const ext = typeof browser !== 'undefined' ? browser : chrome
@@ -13,8 +13,18 @@ ext.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (!parsed.hostname.startsWith('loom.')) return
 
   const realHost = parsed.hostname.slice('loom.'.length)
-  const realUrl = `${parsed.protocol}//${realHost}${parsed.pathname}${parsed.search}`
-  const loomUrl = `${PEERLY_BASE}/loom?url=${encodeURIComponent(realUrl)}`
+
+  // "loom.machine learning" won't parse as a valid hostname — treat as query
+  const isQuery = !realHost.includes('.')
+  let loomUrl
+
+  if (isQuery) {
+    const query = (realHost + parsed.pathname).replace(/^\//, '').replace(/-/g, ' ')
+    loomUrl = `${PEERLY_BASE}/loom?q=${encodeURIComponent(query)}`
+  } else {
+    const realUrl = `${parsed.protocol}//${realHost}${parsed.pathname}${parsed.search}`
+    loomUrl = `${PEERLY_BASE}/loom?url=${encodeURIComponent(realUrl)}`
+  }
 
   try {
     await ext.tabs.update(details.tabId, { url: loomUrl })
