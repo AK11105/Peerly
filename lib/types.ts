@@ -1,3 +1,10 @@
+export interface NodeSource {
+  title: string
+  url: string
+  score: number
+  subreddit: string
+}
+
 export interface WeaveNode {
   id: string
   weave_id: string
@@ -10,6 +17,8 @@ export interface WeaveNode {
   status: 'pending' | 'approved' | 'rejected'
   submitted_by: string | null
   explainer?: string | null
+  sources?: NodeSource[] | null
+  node_source?: 'ai' | 'import' | 'community'
   created_at?: string
 }
 

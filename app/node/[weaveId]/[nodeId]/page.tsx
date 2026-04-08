@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, BookOpen, Layers, BarChart2, Users,
-  Clock, Star, Sparkles, RefreshCw, ChevronRight, ChevronDown
+  Clock, Star, Sparkles, RefreshCw, ChevronRight, ChevronDown, ExternalLink
 } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
 import { ContributeModal } from '@/components/peerly/contribute-modal'
@@ -288,7 +288,9 @@ export default function NodeDetailPage() {
         className="h-1 w-full"
         style={{
           background: node.is_scaffold
-            ? 'linear-gradient(90deg, #F59E0B, #FCD34D)'
+            ? node.node_source === 'import'
+              ? 'linear-gradient(90deg, #3B82F6, #6366F1)'
+              : 'linear-gradient(90deg, #F59E0B, #FCD34D)'
             : `linear-gradient(90deg, ${diffColor}, ${diffColor}66)`,
         }}
       />
@@ -314,11 +316,18 @@ export default function NodeDetailPage() {
               className="text-xs font-semibold px-2.5 py-1 rounded-full"
               style={
                 node.is_scaffold
-                  ? { background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)' }
+                  ? node.node_source === 'import'
+                    ? { background: 'rgba(59,130,246,0.15)', color: '#60A5FA', border: '1px solid rgba(59,130,246,0.3)' }
+                    : { background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)' }
                   : { background: 'rgba(34,197,94,0.15)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.3)' }
               }
             >
-              {node.is_scaffold ? '⚡ AI Draft — needs contribution' : '✓ Community Node'}
+              {node.is_scaffold
+                ? node.node_source === 'import'
+                  ? '↓ Import — needs contribution'
+                  : '⚡ AI Draft — needs contribution'
+                : '✓ Community Node'
+              }
             </span>
             <Badge variant="outline" className="text-xs">{STAGE_LABELS[node.depth] ?? 'Deep Dive'}</Badge>
           </div>
@@ -330,19 +339,28 @@ export default function NodeDetailPage() {
         {node.is_scaffold && (
           <div
             className="rounded-xl p-5 mb-8 flex items-start justify-between gap-4"
-            style={{ background: 'rgba(245,158,11,0.07)', border: '1.5px dashed rgba(245,158,11,0.4)' }}
+            style={node.node_source === 'import'
+              ? { background: 'rgba(59,130,246,0.07)', border: '1.5px dashed rgba(59,130,246,0.4)' }
+              : { background: 'rgba(245,158,11,0.07)', border: '1.5px dashed rgba(245,158,11,0.4)' }
+            }
           >
             <div>
               <p className="font-semibold text-foreground mb-1">This node needs your knowledge</p>
               <p className="text-sm text-muted-foreground">
-                The AI identified this concept as important but no one has filled it yet.
-                Write your own explanation and earn <span className="text-yellow-500 font-semibold">+50 LM</span>.
+                {node.node_source === 'import'
+                  ? 'This was imported from real posts. Verify, refine, or expand it with your own knowledge and earn '
+                  : 'The AI identified this concept as important but no one has filled it yet. Write your own explanation and earn '
+                }
+                <span className="text-yellow-500 font-semibold">+50 LM</span>.
               </p>
             </div>
             <Button
               onClick={() => setContributeOpen(true)}
               className="shrink-0 font-bold"
-              style={{ background: 'linear-gradient(135deg, #F59E0B, #F97316)', color: '#000' }}
+              style={node.node_source === 'import'
+                ? { background: 'linear-gradient(135deg, #3B82F6, #6366F1)', color: '#fff' }
+                : { background: 'linear-gradient(135deg, #F59E0B, #F97316)', color: '#000' }
+              }
             >
               Contribute
             </Button>
@@ -364,9 +382,48 @@ export default function NodeDetailPage() {
           ))}
         </div>
 
-        {/* Deep Dive — community content or AI explainer */}
+        {/* Source posts — only shown for imported nodes that have sources */}
+        {node.sources && node.sources.length > 0 && (
+          <div className="mb-10">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+              Based on {node.sources.length} Reddit {node.sources.length === 1 ? 'post' : 'posts'}
+            </p>
+            <div className="space-y-2">
+              {node.sources.map((src, i) => (
+                <a
+                  key={i}
+                  href={src.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:border-primary/40 transition-colors group"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm text-foreground group-hover:text-primary transition-colors truncate">{src.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{src.subreddit} · {src.score.toLocaleString()} upvotes</p>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Deep Dive — import nodes show their description (sourced from real posts), others get AI explainer */}
         {!node.is_scaffold ? (
           <CommunityExplanations node={node} weaveId={weaveId} nodeId={nodeId} userId={userId ?? ''} upvoteCounts={upvoteCounts} onUpvote={(order, count) => setUpvoteCounts(prev => ({ ...prev, [order]: count }))} />
+        ) : node.node_source === 'import' ? (
+          <div className="mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="h-4 w-4 text-blue-400" />
+              <h2 className="text-lg font-bold text-foreground">Summary</h2>
+              <span className="text-xs text-muted-foreground bg-background border border-border px-2 py-0.5 rounded-full">
+                from real posts
+              </span>
+            </div>
+            <Card className="p-6 bg-card border-border">
+              <p className="text-sm leading-7 text-muted-foreground">{node.description}</p>
+            </Card>
+          </div>
         ) : (
           <div className="mb-10">
             <div className="flex items-center justify-between mb-4">

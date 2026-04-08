@@ -8,9 +8,9 @@
   "background": {
     "service_worker": "background.js"
   },
-  "icons": { "32": "icon32.png", "48": "icon32.png", "128": "icon32.png" },
+  "icons": { "32": "icon.png", "48": "icon.png", "128": "icon.png" },
   "action": {
     "default_title": "Loom by Peerly",
-    "default_icon": "icon32.png"
+    "default_icon": "icon.png"
   }
 }

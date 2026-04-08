@@ -76,12 +76,19 @@ async function extractRedditSubreddit(url: string, parsed: URL) {
   const posts = (listing?.data?.children ?? []).filter((p: any) => p.kind === 't3')
 
   const enriched = await Promise.all(
-    posts.slice(0, 10).map(async (p: any) => {
+    posts.slice(0, 10).map(async (p: any, i: number) => {
       const d = p.data
       const score = d.score ? ` [${d.score}↑]` : ''
       const flair = d.link_flair_text ? ` [${d.link_flair_text}]` : ''
       const content = await fetchPostContent(d.permalink)
-      return `## ${d.title}${flair}${score}\n${content}`
+      return {
+        index: i,
+        title: d.title,
+        url: `https://reddit.com${d.permalink}`,
+        score: d.score ?? 0,
+        subreddit: d.subreddit_name_prefixed ?? subredditName,
+        text: `## [${i}] ${d.title}${flair}${score}\n${content}`,
+      }
     })
   )
 
@@ -92,8 +99,9 @@ async function extractRedditSubreddit(url: string, parsed: URL) {
 
   return {
     title: subredditName,
-    text: enriched.join('\n\n') + (rest ? `\n\nMore posts:\n${rest}` : ''),
+    text: enriched.map(e => e.text).join('\n\n') + (rest ? `\n\nMore posts:\n${rest}` : ''),
     type: 'subreddit' as const,
+    postMeta: enriched,
   }
 }
 
@@ -125,7 +133,17 @@ async function extractRedditPost(url: string) {
     .join('\n\n')
 
   parts.push(`Top comments:\n${topComments}`)
-  return { title, text: parts.join('\n\n'), type: 'reddit_post' as const }
+
+  const postMeta = [{
+    index: 0,
+    title,
+    url,
+    score: post?.score ?? 0,
+    subreddit: post?.subreddit_name_prefixed ?? '',
+    text: `## [0] ${title}\n${parts.join('\n\n')}`,
+  }]
+
+  return { title, text: parts.join('\n\n'), type: 'reddit_post' as const, postMeta }
 }
 
 async function extractRedditSearch(query: string) {
@@ -136,26 +154,35 @@ async function extractRedditSearch(query: string) {
   const posts = (data?.data?.children ?? []).filter((p: any) => p.kind === 't3')
 
   const enriched = await Promise.all(
-    posts.slice(0, 5).map(async (p: any) => {
+    posts.slice(0, 5).map(async (p: any, i: number) => {
       const d = p.data
       const sub = d.subreddit_name_prefixed ? ` (${d.subreddit_name_prefixed})` : ''
       const score = d.score ? ` [${d.score}↑]` : ''
       const content = await fetchPostContent(d.permalink)
-      return `## ${d.title}${sub}${score}\n${content || '(link post, no body)'}`
+      return {
+        index: i,
+        title: d.title,
+        url: `https://reddit.com${d.permalink}`,
+        score: d.score ?? 0,
+        subreddit: d.subreddit_name_prefixed ?? '',
+        text: `## [${i}] ${d.title}${sub}${score}\n${content || '(link post, no body)'}`,
+      }
     })
   )
 
-  return { title: query, text: enriched.join('\n\n'), type: 'search' as const }
+  return { title: query, text: enriched.map(e => e.text).join('\n\n'), type: 'search' as const, postMeta: enriched }
 }
 
 async function extractGeneric(url: string, parsed: URL) {
   const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) })
   const html = await res.text()
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+  const title = titleMatch?.[1]?.trim() ?? parsed.hostname
   return {
-    title: titleMatch?.[1]?.trim() ?? parsed.hostname,
+    title,
     text: stripHtml(html),
     type: 'generic' as const,
+    postMeta: [{ index: 0, title, url, score: 0, subreddit: parsed.hostname, text: '' }],
   }
 }
 
@@ -212,7 +239,7 @@ export async function POST(req: Request) {
     if (existing) return NextResponse.json(existing)
   }
 
-  let page: { title: string; text: string; type: string }
+  let page: { title: string; text: string; type: string; postMeta: { index: number; title: string; url: string; score: number; subreddit: string }[] }
 
   try {
     if (query && !url) {
@@ -241,12 +268,15 @@ export async function POST(req: Request) {
 
 ${contextHint}
 
+Each post is prefixed with its index number like [0], [1], [2]...
+
 Content:
 ${page.text.slice(0, 12000)}
 
 For each node:
 - title: the specific concept being discussed (4-6 words, not generic)
-- description: 3-5 sentences built from the ACTUAL words, opinions, and examples people used in the posts/comments that belong to this cluster. Quote or closely paraphrase real things said. If 4 people discussed linear regression, the description should reflect all 4 perspectives — what they agreed on, disagreed on, what specific points they made.
+- description: 3-5 sentences built from the ACTUAL words, opinions, and examples people used in the posts/comments that belong to this cluster. Quote or closely paraphrase real things said.
+- source_indices: array of 2-3 post index numbers (e.g. [0, 2]) that most contributed to this node — use multiple posts where possible
 - depth 0 = broad concept, higher = specific subtopic or angle within it
 - difficulty 1-5
 
@@ -254,7 +284,7 @@ Do NOT write generic summaries. The description must contain the substance of wh
 Minimum 6 nodes. Cover every distinct concept that appears in the content.
 
 Output ONLY valid JSON:
-{"topic":"<short descriptive name>","nodes":[{"title":"..","description":"..","depth":0,"difficulty":1}, ...]}`
+{"topic":"<short descriptive name>","nodes":[{"title":"..","description":"..","source_indices":[0],"depth":0,"difficulty":1}, ...]}`
 
   const raw = await callAIStrong(prompt)
   const parsed2 = parseJSON(raw)
@@ -270,17 +300,27 @@ Output ONLY valid JSON:
   // Nodes are AI-generated from scraped content — mark as scaffolds for community to verify/improve.
   // contributed_by is null (not authored by the importer).
   const nodes = sortNodes(
-    (parsed2.nodes ?? parsed2).map((item: any) => ({
-      id: randomUUID(),
-      weave_id: weaveId,
-      title: item.title,
-      description: item.description,
-      depth: Number(item.depth),
-      difficulty: Number(item.difficulty),
-      is_scaffold: true,
-      contributed_by: null,
-      status: 'approved',
-    }))
+    (parsed2.nodes ?? parsed2).map((item: any) => {
+      const sources = (item.source_indices ?? [])
+        .slice(0, 3)
+        .map((i: number) => page.postMeta[i])
+        .filter(Boolean)
+        .map(({ title, url, score, subreddit }: any) => ({ title, url, score, subreddit }))
+
+      return {
+        id: randomUUID(),
+        weave_id: weaveId,
+        title: item.title,
+        description: item.description,
+        depth: Number(item.depth),
+        difficulty: Number(item.difficulty),
+        is_scaffold: true,
+        contributed_by: null,
+        status: 'approved',
+        node_source: 'import',
+        sources: sources.length > 0 ? sources : null,
+      }
+    })
   )
 
   const { error: nodesErr } = await supabase.from('nodes').insert(nodes)

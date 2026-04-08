@@ -405,3 +405,15 @@ begin
   return v_count;
 end;
 $$;
+
+-- ── Node sources (Reddit posts that contributed to each imported node) ────────
+alter table nodes add column if not exists sources jsonb;
+alter table nodes add column if not exists node_source text not null default 'ai';
+
+-- Allow node_id to be null in contributions (import type has no single node)
+alter table contributions alter column node_id drop not null;
+
+-- Allow 'import' as a valid contribution type
+alter table contributions drop constraint if exists contributions_type_check;
+alter table contributions add constraint contributions_type_check
+  check (type in ('scaffold_fill', 'add_node', 'perspective', 'import'));
