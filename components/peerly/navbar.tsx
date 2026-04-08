@@ -63,13 +63,13 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
     fetch('/api/sync-user', { method: 'POST' }).catch(() => {})
   }, [user?.id])
 
-  // Auto-open tour only for users who haven't seen it yet
+  // Auto-open tour only for users who haven't seen it yet and only on /explore page
   useEffect(() => {
-    if (!isLoading && shouldShowTour) {
+    if (!isLoading && shouldShowTour && pathname === '/explore') {
       const timer = setTimeout(() => setTourOpen(true), 500)
       return () => clearTimeout(timer)
     }
-  }, [shouldShowTour, isLoading])
+  }, [shouldShowTour, isLoading, pathname])
 
   return (
     <>
