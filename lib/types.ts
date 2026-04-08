@@ -15,6 +15,7 @@ export interface Weave {
   topic: string
   field?: string
   nodes: WeaveNode[]
+  createdBy?: string | null
 }
 
 export interface AddNodePayload {

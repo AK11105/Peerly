@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import type { Weave, AddNodePayload, ContributePayload } from './types'
 
-async function attachNodes(weave: any): Promise<Weave> {
+async function attachNodes(weave: any): Promise<Weave & { createdBy?: string | null }> {
   const { data: nodes } = await supabase
     .from('nodes')
     .select('*')
@@ -9,7 +9,13 @@ async function attachNodes(weave: any): Promise<Weave> {
     .eq('status', 'approved')
     .order('depth', { ascending: true })
     .order('difficulty', { ascending: true })
-  return { ...weave, nodes: nodes ?? [] }
+  const { data: adminData } = await supabase
+    .from('weave_admins')
+    .select('username')
+    .eq('weave_id', weave.id)
+    .limit(1)
+    .maybeSingle()
+  return { ...weave, nodes: nodes ?? [], createdBy: adminData?.username ?? null }
 }
 
 export async function fetchWeave(id: string): Promise<Weave> {
