@@ -52,7 +52,7 @@ const TOUR_STEPS = [
     description: 'You build. AI organizes.',
     icon: Plus,
     content:
-      'When you create a weave, AI generates scaffolds — temporary structures highlighting what should be learned. But the real knowledge comes from people. AI only organizes, rearranges, and helps maintain logical flow.',
+      'When you create a weave, AI generates scaffolds — temporary structures highlighting what should be learned. But the real knowledge comes from people. AI only organizes, rearranges, detects gaps (missing topics) and helps maintain logical flow.',
     color: 'text-green-500',
     bgColor: 'bg-green-500/10',
   },
