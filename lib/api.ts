@@ -1,27 +1,33 @@
 import { supabase } from './supabase'
 import type { Weave, AddNodePayload, ContributePayload } from './types'
 
+async function attachNodes(weave: any): Promise<Weave & { createdBy?: string | null }> {
+  const { data: nodes } = await supabase
+    .from('nodes')
+    .select('*')
+    .eq('weave_id', weave.id)
+    .eq('status', 'approved')
+    .order('depth', { ascending: true })
+    .order('difficulty', { ascending: true })
+  const { data: adminData } = await supabase
+    .from('weave_admins')
+    .select('username')
+    .eq('weave_id', weave.id)
+    .limit(1)
+    .maybeSingle()
+  return { ...weave, nodes: nodes ?? [], createdBy: adminData?.username ?? null }
+}
+
 export async function fetchWeave(id: string): Promise<Weave> {
-  const { data, error } = await supabase
-    .from('weaves')
-    .select('*, nodes(*)')
-    .eq('id', id)
-    .single()
+  const { data, error } = await supabase.from('weaves').select('id,topic,field,created_at').eq('id', id).single()
   if (error) throw new Error(error.message)
-  const weave = data as Weave
-  weave.nodes = [...weave.nodes].sort((a, b) =>
-    a.depth - b.depth || a.difficulty - b.difficulty || Number(a.is_scaffold) - Number(b.is_scaffold)
-  )
-  return weave
+  return attachNodes(data)
 }
 
 export async function fetchAllWeaves(): Promise<Weave[]> {
-  const { data, error } = await supabase
-    .from('weaves')
-    .select('id, topic, field, source, source_url, created_at')
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.from('weaves').select('id,topic,field,created_at').order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
-  return (data ?? []).map(w => ({ ...w, nodes: [] }))
+  return Promise.all((data ?? []).map(attachNodes))
 }
 
 export class ProRequiredError extends Error {
@@ -33,7 +39,10 @@ async function checkResponse(res: Response) {
     const data = await res.json().catch(() => ({}))
     if (data.error === 'pro_required') throw new ProRequiredError()
   }
-  if (!res.ok) throw new Error(await res.text())
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.error ?? `Request failed (${res.status})`)
+  }
   return res.json()
 }
 

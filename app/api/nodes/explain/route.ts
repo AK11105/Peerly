@@ -46,8 +46,8 @@ Plain English, concrete examples, no bullet lists in body, ## headers only.`
   try {
     const explainer = await callAI(prompt)
 
-    if (nodeId) {
-      await supabase.from('nodes').update({ explainer }).eq('id', nodeId)
+    if (weaveId && nodeId) {
+      await supabase.from('nodes').update({ explainer } as any).eq('id', nodeId).eq('weave_id', weaveId)
     }
 
     return NextResponse.json({ explainer })

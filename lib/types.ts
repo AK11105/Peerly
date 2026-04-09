@@ -15,7 +15,7 @@ export interface WeaveNode {
   is_scaffold: boolean
   contributed_by: string | null
   status: 'pending' | 'approved' | 'rejected'
-  submitted_by: string | null
+  submitted_by?: string | null
   explainer?: string | null
   sources?: NodeSource[] | null
   node_source?: 'ai' | 'import' | 'community'
@@ -40,8 +40,7 @@ export interface AddNodePayload {
 }
 
 export interface AddNodeResponse {
-  gap_detected?: boolean
-  missing_concept?: string
+  status: 'pending' | 'approved'
   node?: WeaveNode
 }
 

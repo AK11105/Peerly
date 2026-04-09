@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, BookOpen, Trash2 } from 'lucide-react'
+import { Plus, BookOpen, Trash2, User } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -10,20 +10,35 @@ import { Badge } from '@/components/ui/badge'
 import { fetchWeave } from '@/lib/api'
 import { getMyWeaveIds, removeMyWeaveId } from '@/lib/my-weaves'
 import { useUser } from '@clerk/nextjs'
+import { supabase } from '@/lib/supabase'
 import type { Weave } from '@/lib/types'
+
+interface WeaveWithCreator extends Weave {
+  createdBy?: string | null
+}
 
 export default function MyWeavesPage() {
   const { user } = useUser()
   const username = user?.id
-  const [weaves, setWeaves] = useState<Weave[]>([])
+  const [weaves, setWeaves] = useState<WeaveWithCreator[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadWeaves = async () => {
     if (!username) return
     const ids = await getMyWeaveIds(username)
     if (ids.length === 0) { setLoading(false); return }
-    const results = await Promise.allSettled(ids.map((id) => fetchWeave(id)))
-    const loaded: Weave[] = []
+    const results = await Promise.allSettled(ids.map(async (id) => {
+      const weave = await fetchWeave(id)
+      // Fetch creator from weave_admins
+      const { data: adminData } = await supabase
+        .from('weave_admins')
+        .select('username')
+        .eq('weave_id', id)
+        .limit(1)
+        .maybeSingle()
+      return { ...weave, createdBy: adminData?.username ?? null }
+    }))
+    const loaded: WeaveWithCreator[] = []
     results.forEach((r, i) => {
       if (r.status === 'fulfilled') loaded.push(r.value)
       else removeMyWeaveId(username, ids[i])
@@ -34,10 +49,31 @@ export default function MyWeavesPage() {
 
   useEffect(() => { loadWeaves() }, [username])
 
+  // Realtime subscription for weave deletions
+  useEffect(() => {
+    if (!username) return
+    const channel = supabase
+      .channel(`my-weaves:${username}`)
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'weaves' },
+        ({ old }) => {
+          setWeaves((prev) => prev.filter((w) => w.id !== old.id))
+          removeMyWeaveId(username, old.id)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [username])
+
   const handleDelete = async (id: string) => {
     if (!username) return
-    await removeMyWeaveId(username, id)
-    setWeaves((prev) => prev.filter((w) => w.id !== id))
+    const res = await fetch(`/api/weaves/${id}`, { method: 'DELETE' })
+    if (!res.ok) return
+    // Realtime will handle state update and localStorage cleanup
   }
 
   return (
@@ -77,7 +113,15 @@ export default function MyWeavesPage() {
               return (
                 <Card key={weave.id} className="p-5 bg-card border-border flex flex-col gap-4">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-foreground leading-tight">{weave.topic}</h3>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-foreground leading-tight truncate">{weave.topic}</h3>
+                      {weave.createdBy && (
+                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          Created by {weave.createdBy === username ? 'you' : weave.createdBy}
+                        </p>
+                      )}
+                    </div>
                     <button
                       onClick={() => handleDelete(weave.id)}
                       className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"

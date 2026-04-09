@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Search, BookOpen } from 'lucide-react'
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { fetchAllWeaves } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { FIELDS, matchesField } from '@/lib/fields'
 import type { Weave } from '@/lib/types'
 
@@ -27,11 +28,33 @@ export default function FieldPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const loadWeaves = useCallback(() => {
     fetchAllWeaves()
       .then(setAllWeaves)
       .catch(() => {})
       .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    loadWeaves()
+  }, [loadWeaves])
+
+  // Realtime subscription for weave deletions
+  useEffect(() => {
+    const channel = supabase
+      .channel('field-weaves')
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'weaves' },
+        ({ old }) => {
+          setAllWeaves((prev) => prev.filter((w) => w.id !== old.id))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   const fieldData = FIELDS.find(f => f.name.toLowerCase() === fieldLabel.toLowerCase())

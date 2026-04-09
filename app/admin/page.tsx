@@ -9,11 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { fetchAllWeaves } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@clerk/nextjs'
-import type { Weave } from '@/lib/types'
-
-const PROPOSALS = []
-const ACTIVE_VOTES = []
-const VERSION_HISTORY = []
+import type { Weave, WeaveNode } from '@/lib/types'
 
 export default function AdminPanel() {
   const { user } = useUser()
@@ -22,6 +18,8 @@ export default function AdminPanel() {
   const [myWeaves, setMyWeaves] = useState<Weave[]>([])
   const [selectedWeave, setSelectedWeave] = useState<Weave | null>(null)
   const [loadingWeaves, setLoadingWeaves] = useState(true)
+  const [pendingNodes, setPendingNodes] = useState<WeaveNode[]>([])
+  const [loadingPending, setLoadingPending] = useState(false)
 
   useEffect(() => {
     if (!username) return
@@ -43,6 +41,43 @@ export default function AdminPanel() {
     })()
   }, [username])
 
+  useEffect(() => {
+    if (!selectedWeave) return
+    // Always fetch pending count so badge is accurate regardless of active tab
+    fetch(`/api/weaves/${selectedWeave.id}/pending-nodes`)
+      .then((r) => r.json())
+      .then((data) => setPendingNodes(Array.isArray(data) ? data : []))
+      .catch(() => setPendingNodes([]))
+  }, [selectedWeave])
+
+  useEffect(() => {
+    if (!selectedWeave || activeTab !== 'pending') return
+    setLoadingPending(true)
+    fetch(`/api/weaves/${selectedWeave.id}/pending-nodes`)
+      .then((r) => r.json())
+      .then((data) => setPendingNodes(Array.isArray(data) ? data : []))
+      .catch(() => setPendingNodes([]))
+      .finally(() => setLoadingPending(false))
+  }, [selectedWeave, activeTab])
+
+  async function reviewNode(nodeId: string, action: 'approve' | 'reject') {
+    if (!selectedWeave) return
+    await fetch(`/api/weaves/${selectedWeave.id}/pending-nodes/${nodeId}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    })
+    setPendingNodes((prev) => prev.filter((n) => n.id !== nodeId))
+  }
+
+  async function deleteWeave(weaveId: string) {
+    if (!confirm('Delete this weave permanently? This cannot be undone.')) return
+    await fetch(`/api/weaves/${weaveId}`, { method: 'DELETE' })
+    const updated = myWeaves.filter((w) => w.id !== weaveId)
+    setMyWeaves(updated)
+    setSelectedWeave(updated[0] ?? null)
+  }
+
   const weave = selectedWeave
   const totalNodes = weave?.nodes.length ?? 0
   const scaffoldCount = weave?.nodes.filter((n) => n.is_scaffold).length ?? 0
@@ -61,6 +96,7 @@ export default function AdminPanel() {
             <nav className="space-y-1 mb-8">
               {[
                 { id: 'weaves', label: 'My Weaves' },
+                { id: 'pending', label: 'Pending Nodes', badge: pendingNodes.length > 0 ? pendingNodes.length : null },
                 { id: 'proposals', label: 'Proposals' },
                 { id: 'voting', label: 'Voting' },
                 { id: 'history', label: 'Version History' },
@@ -68,13 +104,14 @@ export default function AdminPanel() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full text-left px-3 py-2 rounded text-sm transition-all ${
+                  className={`w-full text-left px-3 py-2 rounded text-sm transition-all flex items-center justify-between ${
                     activeTab === item.id
                       ? 'bg-primary/10 text-primary font-medium border-l-2 border-l-primary'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {item.label}
+                  {item.badge ? <span className="ml-2 rounded-full bg-primary text-primary-foreground text-xs px-1.5 py-0.5">{item.badge}</span> : null}
                 </button>
               ))}
             </nav>
@@ -160,12 +197,62 @@ export default function AdminPanel() {
                           <div className="h-1.5 bg-background rounded-full overflow-hidden mb-3">
                             <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
                           </div>
-                          <Link href={`/weave/${w.id}`} onClick={(e) => e.stopPropagation()}>
-                            <Button size="sm" variant="outline" className="border-border text-xs">Open Weave →</Button>
-                          </Link>
+                          <div className="flex gap-2">
+                            <Link href={`/weave/${w.id}`} onClick={(e) => e.stopPropagation()}>
+                              <Button size="sm" variant="outline" className="border-border text-xs">Open Weave →</Button>
+                            </Link>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-destructive/50 text-destructive hover:bg-destructive/10 text-xs"
+                              onClick={(e) => { e.stopPropagation(); deleteWeave(w.id) }}
+                            >
+                              Delete
+                            </Button>
+                          </div>
                         </Card>
                       )
                     })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Pending Nodes Tab */}
+            {activeTab === 'pending' && (
+              <div>
+                <h2 className="text-3xl font-bold text-foreground mb-8">Pending Nodes</h2>
+                {!selectedWeave ? (
+                  <p className="text-muted-foreground text-sm">Select a weave first.</p>
+                ) : loadingPending ? (
+                  <div className="space-y-3 max-w-3xl">
+                    {[1,2,3].map(i => <div key={i} className="h-24 bg-card border border-border rounded-xl animate-pulse" />)}
+                  </div>
+                ) : pendingNodes.length === 0 ? (
+                  <Card className="p-8 bg-card border-border text-center max-w-3xl">
+                    <p className="text-muted-foreground">No pending submissions.</p>
+                  </Card>
+                ) : (
+                  <div className="space-y-4 max-w-3xl">
+                    {pendingNodes.map((node) => (
+                      <Card key={node.id} className="p-5 bg-card border-border">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-foreground truncate">{node.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{node.description}</p>
+                            <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
+                              <span>depth {node.depth}</span>
+                              <span>difficulty {node.difficulty}</span>
+                              <span>by {node.submitted_by ?? 'anonymous'}</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <Button size="sm" className="bg-primary hover:bg-primary/90 text-xs" onClick={() => reviewNode(node.id, 'approve')}>Approve</Button>
+                            <Button size="sm" variant="outline" className="border-destructive/50 text-destructive hover:bg-destructive/10 text-xs" onClick={() => reviewNode(node.id, 'reject')}>Reject</Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
                 )}
               </div>

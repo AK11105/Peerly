@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 import { Search, X } from 'lucide-react'
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { fetchAllWeaves } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { FIELDS, matchesField } from '@/lib/fields'
 import type { Weave } from '@/lib/types'
 
@@ -35,11 +36,33 @@ export default function ExplorePage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const loadWeaves = useCallback(() => {
     fetchAllWeaves()
       .then(setWeaves)
       .catch(() => {})
       .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    loadWeaves()
+  }, [loadWeaves])
+
+  // Realtime subscription for weave deletions
+  useEffect(() => {
+    const channel = supabase
+      .channel('explore-weaves')
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'weaves' },
+        ({ old }) => {
+          setWeaves((prev) => prev.filter((w) => w.id !== old.id))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   const q = search.toLowerCase().trim()

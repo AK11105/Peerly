@@ -55,19 +55,24 @@ export function LumensProvider({ children }: { children: ReactNode }) {
     return () => { supabase.removeChannel(channel); window.removeEventListener('focus', fetchBalance) }
   }, [username])
 
-  const refetchBalance = useCallback(async () => {
+  const refetchBalance = useCallback(async (expectedMin?: number) => {
     if (!username) return
-    // Small delay to let the server-side DB write commit before reading back
-    await new Promise(r => setTimeout(r, 300))
-    const { data } = await supabase.from('lumens').select('balance').eq('username', username).single()
-    if (data) setBalance(data.balance)
+    // Retry up to 5 times (2s total) waiting for the DB write to be visible
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 400))
+      const { data } = await supabase.from('lumens').select('balance').eq('username', username).single()
+      if (data) {
+        setBalance(data.balance)
+        if (expectedMin === undefined || data.balance >= expectedMin) break
+      }
+    }
   }, [username])
 
   const earn = useCallback(async (amount: number) => {
     if (!username) return
-    await refetchBalance()
+    await refetchBalance(balance + amount)
     setRecentChange({ amount, type: 'earn' })
-  }, [username, refetchBalance])
+  }, [username, balance, refetchBalance])
 
   const spend = useCallback(async (amount: number): Promise<boolean> => {
     if (!username) return false
@@ -77,10 +82,10 @@ export function LumensProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ amount }),
     })
     if (!res.ok) return false
-    await refetchBalance()
+    await refetchBalance(balance - amount)
     setRecentChange({ amount, type: 'spend' })
     return true
-  }, [username, refetchBalance])
+  }, [username, balance, refetchBalance])
 
   const clearRecentChange = useCallback(() => setRecentChange(null), [])
 

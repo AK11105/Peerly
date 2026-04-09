@@ -90,6 +90,7 @@ alter table users add column if not exists plan text not null default 'free';
 alter table users add column if not exists stripe_customer_id text;
 alter table users add column if not exists stripe_subscription_id text;
 alter table users add column if not exists has_paid boolean not null default false;
+alter table users add column if not exists has_seen_tour boolean not null default false;
 
 -- Ensure plan has the correct default and NOT NULL even if column pre-existed as nullable.
 alter table users alter column plan set default 'free';
@@ -200,8 +201,8 @@ drop function if exists ensure_user(text);
 create or replace function ensure_user(p_username text, p_display_name text default null)
 returns void language plpgsql security definer as $$
 begin
-  insert into users (username, display_name)
-    values (p_username, p_display_name)
+  insert into users (username, display_name, has_seen_tour)
+    values (p_username, p_display_name, false)
     on conflict (username) do update
       set display_name = coalesce(excluded.display_name, users.display_name);
   -- plan is managed via /api/user/plan — never touched here

@@ -13,7 +13,7 @@ Peerly is an AI-augmented collaborative knowledge mapping platform. Users create
 - **Authentication**: Clerk
 - **Database**: Supabase (user plans, display names)
 - **AI**: Ollama (llama3) for weave generation, gap detection, and node explanations
-- **Gemini API**: Used for AI-powered features
+- **Groq API**: Used for AI-powered features
 
 ## Commands
 
@@ -112,3 +112,8 @@ Required in `.env.local`:
 - TypeScript build errors ignored in `next.config.mjs` for faster iteration
 - Images unoptimized in dev (see `next.config.mjs`)
 - CORS allows all origins in development - tighten for production
+
+
+## Important update
+Backend is shifted to Supabase and the fastapi backend/ is no longer used
+localStorage should not be used and should be incorporated in backedn if nto already done

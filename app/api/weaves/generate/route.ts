@@ -31,27 +31,33 @@ export async function POST(req: Request) {
     const prompt = `You are a curriculum designer. Build a learning map for: "${topic}".${seedHint}
 
 Generate 6-8 knowledge nodes ordered by prerequisite depth.
-Rules: depth starts at 0 (foundation). difficulty 1-5. Each node: title (max 5 words) + 1-2 sentence description.
+Rules: depth starts at 0 (foundation). difficulty 1-5. Each node: title (max 5 words, non-empty) + 1-2 sentence description.
 
 Output ONLY a JSON array:
 [{"title":"..","description":"..","depth":0,"difficulty":1}, ...]`
 
     const raw = await callAI(prompt)
     const parsed = parseJSON(raw)
-    nodes = parsed.map((item: any) => ({
-      id: randomUUID(),
-      weave_id: weaveId,
-      title: item.title,
-      description: item.description,
-      depth: Number(item.depth),
-      difficulty: Number(item.difficulty),
-      is_scaffold: true,
-      contributed_by: null,
-      status: 'approved',
-    }))
 
-    const { error: nodesErr } = await supabase.from('nodes').insert(nodes)
-    if (nodesErr) return NextResponse.json({ error: nodesErr.message }, { status: 500 })
+    const rows = parsed
+      .filter((item: any) => item.title?.trim())
+      .map((item: any) => ({
+        id: randomUUID(),
+        weave_id: weaveId,
+        title: item.title.trim(),
+        description: item.description ?? '',
+        depth: Math.max(0, Number(item.depth) || 0),
+        difficulty: Math.min(5, Math.max(1, Math.round(Number(item.difficulty) || 1))),
+        is_scaffold: true,
+        contributed_by: null,
+        status: 'approved',
+      }))
+
+    if (rows.length > 0) {
+      const { error: nodesErr } = await supabase.from('nodes').insert(rows)
+      if (nodesErr) return NextResponse.json({ error: nodesErr.message }, { status: 500 })
+      nodes = rows
+    }
   }
 
   await supabase.rpc('ensure_user', { p_username: userId })
