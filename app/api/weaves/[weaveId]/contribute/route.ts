@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { isPro } from '@/lib/check-plan'
 import { createClient } from '@supabase/supabase-js'
-import { randomUUID } from 'crypto'
-import { callAI } from '@/lib/ai'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

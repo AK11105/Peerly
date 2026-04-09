@@ -12,7 +12,17 @@ export async function POST(req: Request) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, description, topic, depth = 0, difficulty = 1, weaveId, nodeId } = await req.json()
+  const { title, description, topic, depth = 0, difficulty = 1, nodeId } = await req.json()
+
+  // Return cached explainer if already generated
+  if (nodeId) {
+    const { data: node } = await supabase
+      .from('nodes')
+      .select('explainer')
+      .eq('id', nodeId)
+      .single()
+    if (node?.explainer) return NextResponse.json({ explainer: node.explainer })
+  }
 
   const level = ['foundational', 'core', 'intermediate', 'advanced', 'expert'][Math.min(depth, 4)]
   const diffLabel = ['', 'beginner', 'easy', 'intermediate', 'advanced', 'expert'][Math.min(difficulty, 5)]

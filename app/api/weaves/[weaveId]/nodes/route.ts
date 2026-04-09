@@ -4,21 +4,20 @@ import { isPro } from '@/lib/check-plan'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { callAI } from '@/lib/ai'
+import { parseJSON } from '@/lib/parse-json'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-function parseJSON(raw: string): any {
-  const c = raw.trim()
-  try { return JSON.parse(c) } catch {}
-  const fence = c.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fence) try { return JSON.parse(fence[1].trim()) } catch {}
-  const obj = c.match(/(\{[\s\S]*\})|(\[[\s\S]*\])/)
-  if (obj) try { return JSON.parse(obj[0]) } catch {}
-  throw new Error('Could not parse JSON')
-}
+async function runGapDetection(weaveId: string, newTitle: string, newDescription: string) {
+  try {
+    const { data: nodes } = await supabase
+      .from('nodes')
+      .select('depth, difficulty, title')
+      .eq('weave_id', weaveId)
+      .eq('status', 'approved')
 
 function titleExists(nodes: any[], title: string): boolean {
   const t = title.toLowerCase()

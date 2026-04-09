@@ -19,18 +19,32 @@ export async function POST(
   const { weaveId, nodeId } = await params
   const body = await req.json()
 
-  const { data: target, error } = await supabase
-    .from('nodes').select('*').eq('id', nodeId).eq('weave_id', weaveId).single()
-  if (error || !target) return NextResponse.json({ error: 'Node not found' }, { status: 404 })
+  const { data: target, error: fetchErr } = await supabase
+    .from('nodes')
+    .select('description')
+    .eq('id', nodeId)
+    .eq('weave_id', weaveId)
+    .single()
 
-  const appended = `${target.description}\n\n---\n\n**${body.contributed_by ?? 'anonymous'}:** ${body.description}`
-  const { error: updateErr } = await supabase
-    .from('nodes').update({ description: appended }).eq('id', nodeId)
+  if (fetchErr || !target) return NextResponse.json({ error: 'Node not found' }, { status: 404 })
+
+  const author = body.contributed_by ?? userId
+  const appended = `${target.description}\n\n---\n\n**${author}:** ${body.description}`
+
+  const { data: updated, error: updateErr } = await supabase
+    .from('nodes')
+    .update({ description: appended })
+    .eq('id', nodeId)
+    .select()
+    .single()
+
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
 
   await supabase.rpc('ensure_user', { p_username: userId })
-  await supabase.from('contributions').insert({ weave_id: weaveId, node_id: nodeId, username: userId, type: 'perspective', lumens_earned: 25 })
+  await supabase.from('contributions').insert({
+    weave_id: weaveId, node_id: nodeId, username: userId, type: 'perspective', lumens_earned: 25,
+  })
   await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 25 })
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json(updated)
 }

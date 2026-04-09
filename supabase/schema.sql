@@ -9,8 +9,14 @@ create table if not exists weaves (
   topic       text not null,
   field       text,
   nodes       jsonb not null default '[]'::jsonb,
+  source      text not null default 'ai',
+  source_url  text,
   created_at  timestamptz default now()
 );
+
+-- idempotent column additions for existing deployments
+alter table weaves add column if not exists source text not null default 'ai';
+alter table weaves add column if not exists source_url text;
 
 create table if not exists users (
   username     text primary key,
@@ -365,3 +371,50 @@ left join (
   group by username
 ) c on c.username = u.username
 order by rep desc, lumens desc, username asc;
+
+-- ── Node upvotes (replaces JSONB contribution_upvotes/voters) ────────────────
+alter table nodes add column if not exists upvotes int not null default 0;
+
+create table if not exists node_upvotes (
+  node_id  uuid references nodes(id) on delete cascade,
+  username text references users(username) on delete cascade,
+  primary key (node_id, username)
+);
+
+alter table node_upvotes enable row level security;
+drop policy if exists "public read"   on node_upvotes;
+drop policy if exists "public insert" on node_upvotes;
+drop policy if exists "public delete" on node_upvotes;
+create policy "public read"   on node_upvotes for select using (true);
+create policy "public insert" on node_upvotes for insert with check (true);
+create policy "public delete" on node_upvotes for delete using (true);
+
+create or replace function increment_node_upvotes(p_node_id uuid)
+returns int language plpgsql security definer as $$
+declare v_count int;
+begin
+  update nodes set upvotes = upvotes + 1 where id = p_node_id returning upvotes into v_count;
+  return v_count;
+end;
+$$;
+
+create or replace function decrement_node_upvotes(p_node_id uuid)
+returns int language plpgsql security definer as $$
+declare v_count int;
+begin
+  update nodes set upvotes = greatest(0, upvotes - 1) where id = p_node_id returning upvotes into v_count;
+  return v_count;
+end;
+$$;
+
+-- ── Node sources (Reddit posts that contributed to each imported node) ────────
+alter table nodes add column if not exists sources jsonb;
+alter table nodes add column if not exists node_source text not null default 'ai';
+
+-- Allow node_id to be null in contributions (import type has no single node)
+alter table contributions alter column node_id drop not null;
+
+-- Allow 'import' as a valid contribution type
+alter table contributions drop constraint if exists contributions_type_check;
+alter table contributions add constraint contributions_type_check
+  check (type in ('scaffold_fill', 'add_node', 'perspective', 'import'));

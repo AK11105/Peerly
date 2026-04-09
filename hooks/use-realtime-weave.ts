@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import type { Weave, WeaveNode } from '@/lib/types'
 import { fetchWeave } from '@/lib/api'
 import type { Weave } from '@/lib/types'
 
@@ -25,7 +26,23 @@ export function useRealtimeWeave(weaveId: string, initial: Weave | null) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'nodes', filter: `weave_id=eq.${weaveId}` },
-        () => reload()
+        (payload) => {
+          setWeave(prev => {
+            if (!prev) return prev
+            const node = payload.new as WeaveNode
+
+            if (payload.eventType === 'INSERT') {
+              return { ...prev, nodes: [...prev.nodes, node].sort((a, b) => a.depth - b.depth || a.difficulty - b.difficulty) }
+            }
+            if (payload.eventType === 'UPDATE') {
+              return { ...prev, nodes: prev.nodes.map(n => n.id === node.id ? node : n) }
+            }
+            if (payload.eventType === 'DELETE') {
+              return { ...prev, nodes: prev.nodes.filter(n => n.id !== (payload.old as WeaveNode).id) }
+            }
+            return prev
+          })
+        }
       )
       .subscribe()
 

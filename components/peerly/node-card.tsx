@@ -26,27 +26,29 @@ function DifficultyDots({ level }: { level: number }) {
 }
 
 export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: NodeCardProps) {
-  // Clicking anywhere on the card opens detail drawer
-  // The UNLOCK button is a secondary action that goes straight to contribute modal
   const handleCardClick = () => {
     if (onViewDetail) onViewDetail(node)
   }
 
   if (node.is_scaffold) {
+    const isImport = node.node_source === 'import'
+    const accent = isImport ? '#60A5FA' : '#F59E0B'
+    const accentAlpha15 = isImport ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)'
+    const accentAlpha20 = isImport ? 'rgba(59,130,246,0.2)' : 'rgba(245,158,11,0.2)'
+    const accentAlpha25 = isImport ? 'rgba(59,130,246,0.25)' : 'rgba(245,158,11,0.25)'
+    const accentAlpha40 = isImport ? 'rgba(59,130,246,0.4)' : 'rgba(245,158,11,0.4)'
+    const glowSm = isImport ? '0 0 16px rgba(59,130,246,0.1)' : '0 0 16px rgba(245,158,11,0.1)'
+    const glowLg = isImport ? '0 0 24px rgba(59,130,246,0.2)' : '0 0 24px rgba(245,158,11,0.2)'
+
     return (
       <div
         className="relative rounded-lg p-5 transition-all cursor-pointer group"
-        style={{
-          background: '#0E0E0E',
-          border: '1.5px dashed #F59E0B',
-          boxShadow: '0 0 16px rgba(245,158,11,0.1)',
-        }}
+        style={{ background: '#0E0E0E', border: '1.5px dashed ' + accent, boxShadow: glowSm }}
         onClick={handleCardClick}
       >
-        {/* Subtle pulsing glow on hover */}
         <div
           className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-          style={{ boxShadow: '0 0 24px rgba(245,158,11,0.2)' }}
+          style={{ boxShadow: glowLg }}
         />
 
         <div className="mb-3 flex items-start justify-between gap-3">
@@ -55,9 +57,9 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
           </h3>
           <span
             className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-            style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.25)' }}
+            style={{ background: accentAlpha15, color: accent, border: '1px solid ' + accentAlpha25 }}
           >
-            AI Draft
+            {isImport ? '↓ Import' : 'AI Draft'}
           </span>
         </div>
 
@@ -80,7 +82,7 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
               <button
                 onClick={(e) => { e.stopPropagation(); onUnlock(node) }}
                 className="rounded-full px-3 py-1 text-xs font-bold transition-all hover:brightness-110 active:scale-95"
-                style={{ background: 'rgba(245,158,11,0.2)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.4)' }}
+                style={{ background: accentAlpha20, color: accent, border: '1px solid ' + accentAlpha40 }}
               >
                 UNLOCK
               </button>

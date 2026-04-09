@@ -1,5 +1,13 @@
+export interface NodeSource {
+  title: string
+  url: string
+  score: number
+  subreddit: string
+}
+
 export interface WeaveNode {
   id: string
+  weave_id: string
   title: string
   description: string
   depth: number
@@ -8,14 +16,20 @@ export interface WeaveNode {
   contributed_by: string | null
   status: 'pending' | 'approved' | 'rejected'
   submitted_by?: string | null
+  explainer?: string | null
+  sources?: NodeSource[] | null
+  node_source?: 'ai' | 'import' | 'community'
+  created_at?: string
 }
 
 export interface Weave {
   id: string
   topic: string
   field?: string
+  source?: 'ai' | 'import'
+  source_url?: string | null
   nodes: WeaveNode[]
-  createdBy?: string | null
+  created_at?: string
 }
 
 export interface AddNodePayload {

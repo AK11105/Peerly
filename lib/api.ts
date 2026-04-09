@@ -86,3 +86,13 @@ export async function addPerspective(weaveId: string, nodeId: string, payload: A
   })
   return checkResponse(res)
 }
+
+export async function importWeave(urlOrQuery: string, isQuery = false): Promise<Weave> {
+  const body = isQuery ? { query: urlOrQuery } : { url: urlOrQuery }
+  const res = await fetch('/api/weaves/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return checkResponse(res)
+}
