@@ -116,3 +116,4 @@ Required in `.env.local`:
 
 ## Important update
 Backend is shifted to Supabase and the fastapi backend/ is no longer used
+localStorage should not be used and should be incorporated in backedn if nto already done
