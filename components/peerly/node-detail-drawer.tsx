@@ -7,6 +7,7 @@ import {
   ChevronRight, Clock, Star, ExternalLink, PenLine,
 } from 'lucide-react'
 import type { WeaveNode } from '@/lib/types'
+import { STAGE_LABELS } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { ContributionThread, type Contribution } from './contribution-thread'
 
@@ -23,14 +24,7 @@ interface NodeDetailDrawerProps {
 const DIFFICULTY_LABELS = ['', 'Beginner', 'Easy', 'Intermediate', 'Advanced', 'Expert']
 const DIFFICULTY_COLORS = ['', '#22C55E', '#86EFAC', '#F59E0B', '#EF4444', '#9333EA']
 
-const STAGE_LABELS: Record<number, string> = {
-  0: 'Foundation',
-  1: 'Core Concepts',
-  2: 'Intermediate',
-  3: 'Advanced',
-  4: 'Expert',
-  5: 'Mastery',
-}
+
 
 const READ_TIMES = ['', '10 min', '20 min', '35 min', '50 min', '90 min']
 

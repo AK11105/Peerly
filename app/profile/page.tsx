@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useUser } from '@clerk/nextjs'
+import { toast } from 'sonner'
 import { useLumens } from '@/lib/lumens-context'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { supabase } from '@/lib/supabase'
@@ -74,9 +75,9 @@ export default function ProfilePage() {
 
   const handleRedeem = async (cost: number, name: string) => {
     const ok = await spend(cost)
-    if (!ok) { alert('Not enough Lumens!'); return }
+    if (!ok) { toast.error('Not enough Lumens!'); return }
     setShowRedeemDialog(false)
-    alert(`Redeemed: ${name}`)
+    toast.success(`Redeemed: ${name}`)
   }
 
   const startEditName = () => {

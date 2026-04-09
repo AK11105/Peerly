@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, description, topic, depth = 0, difficulty = 1, nodeId } = await req.json()
+  const { title, description, topic, depth = 0, difficulty = 1, nodeId, weaveId } = await req.json()
 
   // Return cached explainer if already generated
   if (nodeId) {

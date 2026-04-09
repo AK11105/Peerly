@@ -48,8 +48,8 @@ function CreateWeaveForm() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // If field is preselected from URL, skip step 2 entirely
-  const hasField = !!selectedField
+  // Only skip step 2 if field was pre-selected from URL param
+  const hasField = !!preselectedField
   const totalSteps = hasField ? 2 : 3
   const stepLabels = hasField ? ['Topic', 'Admins'] : ['Topic', 'Field', 'Admins']
 
@@ -100,6 +100,16 @@ function CreateWeaveForm() {
       clearInterval(interval)
       setProgress(100)
       await addMyWeaveId(username!, weave.id)
+      // Add any extra admins the user specified
+      if (admins.length > 0) {
+        await Promise.all(admins.map((a) =>
+          fetch(`/api/weaves/${weave.id}/admins`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: a }),
+          })
+        ))
+      }
       toast.success('Weave created!')
       setTimeout(() => router.push(`/weave/${weave.id}`), 500)
     } catch (err) {
@@ -190,7 +200,7 @@ function CreateWeaveForm() {
                 {fieldDropdownOpen && (
                   <div className="absolute top-full left-0 mt-1 z-50 w-52 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
                     <div className="max-h-56 overflow-y-auto py-1">
-                      {FIELD_NAMES.map((name) => (
+                      {[...(!FIELD_NAMES.includes(selectedField) && selectedField ? [selectedField] : []), ...FIELD_NAMES].map((name) => (
                         <button
                           key={name}
                           onClick={() => {
@@ -262,8 +272,8 @@ function CreateWeaveForm() {
           </Card>
         )}
 
-        {/* Step 2: Field — only shown when no field selected */}
-        {step === 2 && !selectedField && (
+        {/* Step 2: Field selection */}
+        {step === 2 && (
           <Card className="p-8 bg-card border-border">
             <h2 className="text-2xl font-bold text-foreground mb-6">Choose a Field</h2>
             <div className="grid grid-cols-2 gap-3 mb-6">
@@ -287,9 +297,12 @@ function CreateWeaveForm() {
               <Input
                 placeholder="Enter field name..."
                 value={newField}
-                onChange={(e) => {
-                  setNewField(e.target.value)
-                  if (e.target.value.trim()) setSelectedField(e.target.value)
+                onChange={(e) => setNewField(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newField.trim()) {
+                    setSelectedField(newField.trim())
+                    setStep(3)
+                  }
                 }}
                 className="h-10 bg-background border-border"
               />
@@ -300,8 +313,11 @@ function CreateWeaveForm() {
                 Back
               </Button>
               <Button
-                onClick={goNext}
-                disabled={!selectedField.trim()}
+                onClick={() => {
+                  if (newField.trim() && !selectedField.trim()) setSelectedField(newField.trim())
+                  goNext()
+                }}
+                disabled={!selectedField.trim() && !newField.trim()}
                 className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50"
               >
                 Continue <ChevronRight className="h-4 w-4 ml-2" />

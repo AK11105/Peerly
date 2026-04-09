@@ -2,21 +2,14 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { isPro } from '@/lib/check-plan'
 import { createClient } from '@supabase/supabase-js'
+import { randomUUID } from 'crypto'
+import { callAI } from '@/lib/ai'
+import { parseJSON } from '@/lib/parse-json'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
-function parseJSON(raw: string): any {
-  const c = raw.trim()
-  try { return JSON.parse(c) } catch {}
-  const fence = c.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (fence) try { return JSON.parse(fence[1].trim()) } catch {}
-  const obj = c.match(/(\{[\s\S]*\})|(\[[\s\S]*\])/)
-  if (obj) try { return JSON.parse(obj[0]) } catch {}
-  throw new Error('Could not parse JSON')
-}
 
 async function runGapDetection(weaveId: string, topic: string, newTitle: string, newDesc: string) {
   try {
@@ -79,9 +72,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
   const description = body.description?.trim()
   if (!description) return NextResponse.json({ error: 'description is required' }, { status: 400 })
 
+  // Resolve contributed_by from DB display_name — never trust client-sent value
+  const { data: userRow } = await supabase.from('users').select('display_name').eq('username', userId).maybeSingle()
+  const contributedBy = userRow?.display_name ?? body.contributed_by ?? 'anonymous'
+
   const { error: updateErr } = await supabase
     .from('nodes')
-    .update({ title, description, is_scaffold: false, contributed_by: body.contributed_by ?? 'anonymous', status: 'approved' })
+    .update({ title, description, is_scaffold: false, contributed_by: contributedBy, status: 'approved' })
     .eq('id', target.id)
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
 

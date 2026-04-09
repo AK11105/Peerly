@@ -418,3 +418,32 @@ alter table contributions alter column node_id drop not null;
 alter table contributions drop constraint if exists contributions_type_check;
 alter table contributions add constraint contributions_type_check
   check (type in ('scaffold_fill', 'add_node', 'perspective', 'import'));
+
+-- ── Atomic community upvote counters (fixes race condition in upvote routes) ──
+create or replace function increment_message_upvotes(p_message_id uuid)
+returns void language plpgsql security definer as $$
+begin
+  update community_messages set upvotes = upvotes + 1 where id = p_message_id;
+end;
+$$;
+
+create or replace function decrement_message_upvotes(p_message_id uuid)
+returns void language plpgsql security definer as $$
+begin
+  update community_messages set upvotes = greatest(0, upvotes - 1) where id = p_message_id;
+end;
+$$;
+
+create or replace function increment_reply_upvotes(p_reply_id uuid)
+returns void language plpgsql security definer as $$
+begin
+  update community_replies set upvotes = upvotes + 1 where id = p_reply_id;
+end;
+$$;
+
+create or replace function decrement_reply_upvotes(p_reply_id uuid)
+returns void language plpgsql security definer as $$
+begin
+  update community_replies set upvotes = greatest(0, upvotes - 1) where id = p_reply_id;
+end;
+$$;

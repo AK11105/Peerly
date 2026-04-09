@@ -21,24 +21,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ message
     .eq('username', userId).eq('target_id', messageId).eq('target_type', 'message')
     .maybeSingle()
 
-  const { data: msg } = await supabase
-    .from('community_messages').select('upvotes').eq('id', messageId).single()
-  if (!msg) return NextResponse.json({ error: 'Message not found' }, { status: 404 })
-
   if (existing) {
     await supabase.from('community_upvotes')
       .delete().eq('username', userId).eq('target_id', messageId).eq('target_type', 'message')
-    const upvotes = Math.max(0, msg.upvotes - 1)
-    await supabase.from('community_messages').update({ upvotes }).eq('id', messageId)
-    return NextResponse.json({ upvotes })
+    await supabase.rpc('decrement_message_upvotes', { p_message_id: messageId })
+    const { data: msg } = await supabase.from('community_messages').select('upvotes').eq('id', messageId).single()
+    return NextResponse.json({ upvotes: msg?.upvotes ?? 0 })
   } else {
     await supabase.from('community_upvotes')
       .insert({ username: userId, target_id: messageId, target_type: 'message' })
-    const upvotes = msg.upvotes + 1
-    await supabase.from('community_messages').update({ upvotes }).eq('id', messageId)
-    const { data: earnData, error: earnErr } = await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 1 })
-    if (earnErr) console.error('[earn_lumens upvote FAILED]', earnErr.message, { userId })
-    else console.log('[earn_lumens upvote OK]', { userId, newBalance: earnData })
-    return NextResponse.json({ upvotes })
+    await supabase.rpc('increment_message_upvotes', { p_message_id: messageId })
+    const { data: msg } = await supabase.from('community_messages').select('upvotes').eq('id', messageId).single()
+    await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 1 })
+    return NextResponse.json({ upvotes: msg?.upvotes ?? 0 })
   }
 }

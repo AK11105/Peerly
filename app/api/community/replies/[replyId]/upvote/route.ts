@@ -21,22 +21,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ replyId
     .eq('username', userId).eq('target_id', replyId).eq('target_type', 'reply')
     .maybeSingle()
 
-  const { data: reply } = await supabase
-    .from('community_replies').select('upvotes').eq('id', replyId).single()
-  if (!reply) return NextResponse.json({ error: 'Reply not found' }, { status: 404 })
-
   if (existing) {
     await supabase.from('community_upvotes')
       .delete().eq('username', userId).eq('target_id', replyId).eq('target_type', 'reply')
-    const upvotes = Math.max(0, reply.upvotes - 1)
-    await supabase.from('community_replies').update({ upvotes }).eq('id', replyId)
-    return NextResponse.json({ upvotes })
+    await supabase.rpc('decrement_reply_upvotes', { p_reply_id: replyId })
+    const { data: reply } = await supabase.from('community_replies').select('upvotes').eq('id', replyId).single()
+    return NextResponse.json({ upvotes: reply?.upvotes ?? 0 })
   } else {
     await supabase.from('community_upvotes')
       .insert({ username: userId, target_id: replyId, target_type: 'reply' })
-    const upvotes = reply.upvotes + 1
-    await supabase.from('community_replies').update({ upvotes }).eq('id', replyId)
+    await supabase.rpc('increment_reply_upvotes', { p_reply_id: replyId })
+    const { data: reply } = await supabase.from('community_replies').select('upvotes').eq('id', replyId).single()
     await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 1 })
-    return NextResponse.json({ upvotes })
+    return NextResponse.json({ upvotes: reply?.upvotes ?? 0 })
   }
 }

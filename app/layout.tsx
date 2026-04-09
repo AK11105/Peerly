@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { ClerkProvider } from '@clerk/nextjs'
 import { LumensProvider } from '@/lib/lumens-context'
+import { CurrentUserProvider } from '@/hooks/use-current-user'
 import './globals.css'
 import { dark, shadcn } from '@clerk/ui/themes'
 
@@ -34,7 +35,9 @@ export default function RootLayout({
       <html lang="en" className="dark">
         <body className={`${lexend.variable} font-sans antialiased`}>
           <LumensProvider>
+            <CurrentUserProvider>
             {children}
+          </CurrentUserProvider>
           </LumensProvider>
           <Toaster
             position="bottom-right"

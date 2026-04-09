@@ -11,14 +11,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function runGapDetection(weaveId: string, newTitle: string, newDescription: string) {
-  try {
-    const { data: nodes } = await supabase
-      .from('nodes')
-      .select('depth, difficulty, title')
-      .eq('weave_id', weaveId)
-      .eq('status', 'approved')
-
 function titleExists(nodes: any[], title: string): boolean {
   const t = title.toLowerCase()
   return nodes.some((n) => n.title.toLowerCase().includes(t) || t.includes(n.title.toLowerCase()))
@@ -158,6 +150,11 @@ Reply ONLY JSON: {"depth":<int>,"difficulty":<1-5>,"reasoning":"one sentence"}`
 
   // 3. Insert as pending — HITL
   const nodeId = randomUUID()
+
+  // Resolve contributed_by from DB display_name to avoid storing raw Clerk IDs
+  const { data: userRow } = await supabase.from('users').select('display_name').eq('username', userId).maybeSingle()
+  const contributedBy = userRow?.display_name ?? body.contributed_by ?? 'anonymous'
+
   const newNode = {
     id: nodeId,
     weave_id: weaveId,
@@ -166,7 +163,7 @@ Reply ONLY JSON: {"depth":<int>,"difficulty":<1-5>,"reasoning":"one sentence"}`
     depth,
     difficulty,
     is_scaffold: false,
-    contributed_by: body.contributed_by ?? 'anonymous',
+    contributed_by: contributedBy,
     submitted_by: userId,
     status: 'pending',
   }
