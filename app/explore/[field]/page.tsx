@@ -58,6 +58,7 @@ export default function FieldPage() {
   }, [])
 
   const fieldData = FIELDS.find(f => f.name.toLowerCase() === fieldLabel.toLowerCase())
+  const FieldIcon = fieldData?.icon ?? BookOpen
 
   const fieldWeaves = allWeaves.filter((w) =>
     matchesField(w, fieldLabel, fieldData?.keywords ?? [])

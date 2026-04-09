@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { fetchWeave } from '@/lib/api'
+import { toast } from 'sonner'
 import { getMyWeaveIds, removeMyWeaveId } from '@/lib/my-weaves'
 import { useUser } from '@clerk/nextjs'
 import { supabase } from '@/lib/supabase'
@@ -27,17 +28,7 @@ export default function MyWeavesPage() {
     if (!username) return
     const ids = await getMyWeaveIds(username)
     if (ids.length === 0) { setLoading(false); return }
-    const results = await Promise.allSettled(ids.map(async (id) => {
-      const weave = await fetchWeave(id)
-      // Fetch creator from weave_admins
-      const { data: adminData } = await supabase
-        .from('weave_admins')
-        .select('username')
-        .eq('weave_id', id)
-        .limit(1)
-        .maybeSingle()
-      return { ...weave, createdBy: adminData?.username ?? null }
-    }))
+    const results = await Promise.allSettled(ids.map((id) => fetchWeave(id)))
     const loaded: WeaveWithCreator[] = []
     results.forEach((r, i) => {
       if (r.status === 'fulfilled') loaded.push(r.value)
@@ -71,8 +62,12 @@ export default function MyWeavesPage() {
 
   const handleDelete = async (id: string) => {
     if (!username) return
+    if (!window.confirm('Permanently delete this weave for everyone? This cannot be undone.')) return
     const res = await fetch(`/api/weaves/${id}`, { method: 'DELETE' })
-    if (!res.ok) return
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      toast.error(data?.error ?? 'Failed to delete weave.')
+    }
     // Realtime will handle state update and localStorage cleanup
   }
 
@@ -125,7 +120,7 @@ export default function MyWeavesPage() {
                     <button
                       onClick={() => handleDelete(weave.id)}
                       className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
-                      title="Remove from My Weaves"
+                      title="Delete Weave permanently"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

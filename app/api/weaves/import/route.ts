@@ -229,12 +229,20 @@ export async function POST(req: Request) {
   const { url, query } = await req.json()
   if (!url && !query) return NextResponse.json({ error: 'url or query is required' }, { status: 400 })
 
-  // Deduplication: return existing weave if same source_url was already imported
+  // Deduplication: return existing weave if same source was already imported
   if (url) {
     const { data: existing } = await supabase
       .from('weaves')
       .select('id, topic, field, source, source_url, nodes(*)')
       .eq('source_url', url)
+      .maybeSingle()
+    if (existing) return NextResponse.json(existing)
+  } else if (query) {
+    const { data: existing } = await supabase
+      .from('weaves')
+      .select('id, topic, field, source, source_url, nodes(*)')
+      .eq('source', 'import')
+      .eq('topic', query)
       .maybeSingle()
     if (existing) return NextResponse.json(existing)
   }

@@ -10,6 +10,7 @@ import { ContributeModal } from './contribute-modal'
 import { AddPerspectiveModal } from './add-perspective-modal'
 import { SponsoredCard, SPONSORED_ADS } from './sponsored-card'
 import type { Weave, WeaveNode } from '@/lib/types'
+import { STAGE_LABELS } from '@/lib/constants'
 
 const MindMapView = dynamic(
   () => import('./mind-map-view').then((m) => m.MindMapView),
@@ -22,13 +23,7 @@ interface WeaveViewerProps {
   onRefresh: () => void
 }
 
-const STAGE_LABELS: Record<number, string> = {
-  1: 'Foundation',
-  2: 'Core',
-  3: 'Advanced',
-  4: 'Expert',
-  5: 'Mastery',
-}
+
 
 export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
   const [view, setView] = useState<'list' | 'map'>('list')
@@ -130,7 +125,7 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
             <section key={depth}>
               <div className="mb-4 flex items-center gap-3">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Stage {depth} — {STAGE_LABELS[depth] ?? 'Deep Dive'}
+                  {STAGE_LABELS[depth] ?? 'Deep Dive'}
                 </h2>
                 <div className="h-px flex-1 bg-border" />
               </div>

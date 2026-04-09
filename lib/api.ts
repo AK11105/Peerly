@@ -19,13 +19,13 @@ async function attachNodes(weave: any): Promise<Weave & { createdBy?: string | n
 }
 
 export async function fetchWeave(id: string): Promise<Weave> {
-  const { data, error } = await supabase.from('weaves').select('id,topic,field,created_at').eq('id', id).single()
+  const { data, error } = await supabase.from('weaves').select('id,topic,field,source,source_url,created_at').eq('id', id).single()
   if (error) throw new Error(error.message)
   return attachNodes(data)
 }
 
 export async function fetchAllWeaves(): Promise<Weave[]> {
-  const { data, error } = await supabase.from('weaves').select('id,topic,field,created_at').order('created_at', { ascending: false })
+  const { data, error } = await supabase.from('weaves').select('id,topic,field,source,source_url,created_at').order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
   return Promise.all((data ?? []).map(attachNodes))
 }

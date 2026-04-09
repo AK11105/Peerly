@@ -47,20 +47,22 @@ export function ContributeModal({
       toast.error('Please fill in the description field.')
       return
     }
+    // Validate link before setting loading state to avoid stuck spinner
+    if (link.trim()) {
+      try {
+        const url = new URL(link.trim())
+        if (url.protocol !== 'https:') {
+          setLinkError('Only https:// links are allowed')
+          return
+        }
+      } catch {
+        setLinkError('Please enter a valid URL')
+        return
+      }
+    }
+
     setIsLoading(true)
     try {
-        if (link.trim()) {
-            try {
-                const url = new URL(link.trim())
-                if (url.protocol !== 'https:') {
-                setLinkError('Only https:// links are allowed')
-                return
-                }
-            } catch {
-                setLinkError('Please enter a valid URL')
-                return
-            }
-        }
 
 
       await contributeToScaffold(weaveId, {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
-import { Search, X } from 'lucide-react'
+import { Search, X, BookOpen } from 'lucide-react'
 import { Navbar } from '@/components/peerly/navbar'
 import { SponsoredCard, SPONSORED_ADS } from '@/components/peerly/sponsored-card'
 import { Button } from '@/components/ui/button'
@@ -67,10 +67,26 @@ export default function ExplorePage() {
 
   const q = search.toLowerCase().trim()
 
-  const matchedFields = useMemo(() =>
-    q ? FIELDS.filter((f) => f.name.toLowerCase().includes(q)) : [],
-    [q]
-  )
+  // Derive custom fields from weaves that have a field not in the preset list
+  const customFields = useMemo(() => {
+    const presetNames = new Set(FIELDS.map((f) => f.name.toLowerCase()))
+    const seen = new Set<string>()
+    for (const w of weaves) {
+      if (w.field && !presetNames.has(w.field.toLowerCase())) {
+        seen.add(w.field)
+      }
+    }
+    return Array.from(seen).sort()
+  }, [weaves])
+
+  const matchedFields = useMemo(() => {
+    if (!q) return []
+    const preset = FIELDS.filter((f) => f.name.toLowerCase().includes(q))
+    const custom = customFields
+      .filter((name) => name.toLowerCase().includes(q))
+      .map((name) => ({ name, icon: null as null, keywords: [] as string[] }))
+    return [...preset, ...custom]
+  }, [q, customFields])
 
   const matchedWeaves = useMemo(() =>
     q ? weaves.filter((w) => w.topic.toLowerCase().includes(q)) : weaves,
@@ -128,12 +144,12 @@ export default function ExplorePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {matchedFields.map((field) => {
                     const Icon = field.icon
-                    const count = weaves.filter((w) => matchesField(w, field.name, field.keywords)).length
+                    const count = weaves.filter((w) => matchesField(w, field.name, field.keywords ?? [])).length
                     return (
                       <Link key={field.name} href={`/explore/${field.name.toLowerCase().replace(/\s+/g, '-')}`}>
                         <Card className="p-4 hover:border-primary hover:shadow-md transition-all cursor-pointer bg-card border-border flex items-center gap-3">
                           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
-                            <Icon className="h-5 w-5 text-primary" />
+                            {Icon ? <Icon className="h-5 w-5 text-primary" /> : <BookOpen className="h-5 w-5 text-primary" />}
                           </div>
                           <div>
                             <p className="font-bold text-foreground text-sm">
@@ -154,15 +170,15 @@ export default function ExplorePage() {
               <div className="mb-14">
                 <h2 className="text-2xl font-bold text-foreground mb-6">All Fields</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {FIELDS.map((field) => {
+                  {[...FIELDS, ...customFields.map((name) => ({ name, icon: null as null, keywords: [] as string[] }))].map((field) => {
                     const Icon = field.icon
-                    const count = weaves.filter((w) => matchesField(w, field.name, field.keywords)).length
+                    const count = weaves.filter((w) => matchesField(w, field.name, field.keywords ?? [])).length
                     return (
                       <Link key={field.name} href={`/explore/${field.name.toLowerCase().replace(/\s+/g, '-')}`}>
                         <Card className="p-5 hover:border-primary hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer bg-card border-border">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                              <Icon className="h-5 w-5 text-primary" />
+                              {Icon ? <Icon className="h-5 w-5 text-primary" /> : <BookOpen className="h-5 w-5 text-primary" />}
                             </div>
                             <Badge variant="outline" className="text-xs">{count} Weaves</Badge>
                           </div>

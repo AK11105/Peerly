@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Weave, WeaveNode } from '@/lib/types'
 import { fetchWeave } from '@/lib/api'
-import type { Weave } from '@/lib/types'
 
 export function useRealtimeWeave(weaveId: string, initial: Weave | null) {
   const [weave, setWeave] = useState<Weave | null>(initial)
@@ -32,10 +31,19 @@ export function useRealtimeWeave(weaveId: string, initial: Weave | null) {
             const node = payload.new as WeaveNode
 
             if (payload.eventType === 'INSERT') {
+              // Only show approved nodes
+              if ((node as any).status !== 'approved') return prev
               return { ...prev, nodes: [...prev.nodes, node].sort((a, b) => a.depth - b.depth || a.difficulty - b.difficulty) }
             }
             if (payload.eventType === 'UPDATE') {
-              return { ...prev, nodes: prev.nodes.map(n => n.id === node.id ? node : n) }
+              // If a node was approved, add it; if rejected/pending, remove it
+              if ((node as any).status === 'approved') {
+                const exists = prev.nodes.some(n => n.id === node.id)
+                if (exists) return { ...prev, nodes: prev.nodes.map(n => n.id === node.id ? node : n) }
+                return { ...prev, nodes: [...prev.nodes, node].sort((a, b) => a.depth - b.depth || a.difficulty - b.difficulty) }
+              } else {
+                return { ...prev, nodes: prev.nodes.filter(n => n.id !== node.id) }
+              }
             }
             if (payload.eventType === 'DELETE') {
               return { ...prev, nodes: prev.nodes.filter(n => n.id !== (payload.old as WeaveNode).id) }
