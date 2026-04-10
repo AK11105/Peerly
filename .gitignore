@@ -9,6 +9,8 @@ next.user-config.*
 # Vercel
 .vercel/
 
+components/peerly/old_community-hub.tsx
+
 # Environment variables
 .env
 .env.local
