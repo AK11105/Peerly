@@ -14,6 +14,7 @@ import ReactFlow, {
   Position,
   BackgroundVariant,
 } from 'reactflow'
+
 import 'reactflow/dist/style.css'
 import type { WeaveNode } from '@/lib/types'
 
@@ -252,7 +253,8 @@ export function MindMapView({ weaveNodes, onViewDetail }: MindMapViewProps) {
 
   return (
     <div
-      style={{ height: 520, borderRadius: 12, overflow: 'hidden', border: '1px solid #1F1F1F' }}
+    className="w-full"
+    style={{ height: 'min(520px, 60vh)', borderRadius: 12, overflow: 'hidden', border: '1px solid #1F1F1F' }}
     >
       <ReactFlow
         nodes={nodes}

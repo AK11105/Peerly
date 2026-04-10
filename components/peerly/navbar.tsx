@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Star, LogOut, User, HelpCircle } from 'lucide-react'
+import { Star, LogOut, User, HelpCircle, Menu , X } from 'lucide-react'
 import { SignInButton, SignUpButton, useClerk, useUser } from '@clerk/nextjs'
 import { useLumens } from '@/lib/lumens-context'
 import { useCurrentUser } from '@/hooks/use-current-user'
@@ -11,11 +11,17 @@ import { useOnboarding } from '@/hooks/use-onboarding'
 import { RedeemDialog } from './redeem-dialog'
 import { OnboardingTour } from './onboarding-tour'
 
+
+
 interface NavbarProps {
   showWeaveTitle?: string
 }
 
 export function Navbar({ showWeaveTitle }: NavbarProps) {
+
+const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+
   const pathname = usePathname()
   const { signOut } = useClerk()
   const { user } = useUser()
@@ -91,28 +97,30 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
             )}
           </div>
 
-          {/* Center Nav Links */}
-          <nav className="hidden md:flex items-center gap-6">
-            {navLinks.map(({ href, label }) => (
-              <Link key={href} href={href}
-                className={`text-sm font-medium transition-colors ${
-                  pathname === href || pathname.startsWith(href + '/')
-                    ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >{label}</Link>
-            ))}
-          </nav>
+          {/* Center Nav Links - desktop only */}
+<nav className="hidden md:flex items-center gap-6">
+  {navLinks.map(({ href, label }) => (
+    <Link key={href} href={href}
+      className={`text-sm font-medium transition-colors ${
+        pathname === href || pathname.startsWith(href + '/')
+          ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+      }`}
+    >{label}</Link>
+  ))}
+</nav>
+
+
+
 
           {/* Right side */}
           <div className="flex items-center gap-4">
-            {/* Debug: Reset Tour (dev only) */}
-           {/* <button onClick={resetTour}
-              className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/50 hover:bg-card/80 transition-colors"
-              title="Reset onboarding tour (dev only)"
-            >
-              <Bug className="h-4 w-4" />
-              <span className="hidden sm:inline">Reset Tour</span>
-            </button> */}
+ 
+            <button
+  className="md:hidden flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground"
+  onClick={() => setMobileMenuOpen(v => !v)}
+>
+  {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+</button>
 
             {/* Tour/Help Button */}
             <button onClick={() => setTourOpen(true)}
@@ -200,6 +208,27 @@ export function Navbar({ showWeaveTitle }: NavbarProps) {
           </div>
         </div>
       </header>
+
+      {mobileMenuOpen && (
+  <div className="md:hidden fixed inset-0 top-14 z-40 bg-background border-t border-border overflow-y-auto">
+    <nav className="flex flex-col p-4 gap-1">
+      {navLinks.map(({ href, label }) => (
+        <Link
+          key={href}
+          href={href}
+          onClick={() => setMobileMenuOpen(false)}
+          className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+            pathname === href || pathname.startsWith(href + '/')
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          }`}
+        >
+          {label}
+        </Link>
+      ))}
+    </nav>
+  </div>
+)}
 
       <RedeemDialog open={redeemOpen} onOpenChange={setRedeemOpen} />
       <OnboardingTour open={tourOpen} onOpenChange={setTourOpen} onComplete={markTourAsSeen} />
