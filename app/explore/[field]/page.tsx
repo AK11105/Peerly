@@ -126,7 +126,7 @@ export default function FieldPage() {
 
         {/* Results */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-44 rounded-xl bg-card border border-border animate-pulse" />
             ))}
@@ -145,7 +145,7 @@ export default function FieldPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             {filtered.map((weave) => {
               const communityNodes = weave.nodes.filter((n) => !n.is_scaffold).length
               const totalNodes = weave.nodes.length

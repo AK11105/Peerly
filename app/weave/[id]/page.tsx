@@ -1,3 +1,5 @@
+// app\weave\[id]\page.tsx
+
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -12,11 +14,16 @@ import { fetchWeave } from '@/lib/api'
 import { useRealtimeWeave } from '@/hooks/use-realtime-weave'
 import type { Weave, WeaveNode } from '@/lib/types'
 
+
 const MIN_WIDTH = 280
 const MAX_WIDTH = 560
 const DEFAULT_WIDTH = 320
 
 export default function WeavePage() {
+
+  const [showMobileCommunity, setShowMobileCommunity] = useState(false)
+
+
   const params = useParams()
   const router = useRouter()
   const weaveId = params?.id as string
@@ -132,12 +139,13 @@ useEffect(() => {
       <div className="flex flex-1 min-h-0">
 
         {/* FAB column */}
-        <div className="shrink-0 w-14 flex justify-center pt-8 pl-2 border-r border-border/30">
+        <div className="shrink-0 w-10 md:w-14 flex justify-center pt-4 md:pt-8 pl-1 md:pl-2 border-r border-border/30">
           <AddNodePanel weaveId={weave.id} onRefresh={loadWeave} />
         </div>
 
         {/* Center: weave content */}
-        <main className="flex-1 min-w-0 overflow-y-auto px-6 py-8 relative">
+        <main className="flex-1 min-w-0 overflow-y-auto px-3 md:px-6 py-4 md:py-8 relative">
+
           <WeaveViewer weave={weave} onUnlock={handleUnlock} onRefresh={loadWeave}/>
 
           {/* Toggle button — floats at the right edge of main, always visible */}
@@ -145,6 +153,7 @@ useEffect(() => {
             onClick={() => setSidebarOpen(o => !o)}
             title={sidebarOpen ? 'Close community sidebar [ Ctrl/CMD + B ] ' : 'Open community sidebar [ Ctrl/CMD + B ]'}
             className={`
+              hidden md:flex
               fixed top-1/2 -translate-y-1/2 z-30
               flex items-center justify-center
               h-24 w-10 rounded-l-md
@@ -160,21 +169,33 @@ useEffect(() => {
             }}
           >
             <ChevronRight
-              className="h-3.5 w-3.5 transition-transform duration-200"
+              className="   hidden md:flex h-3.5 w-3.5 transition-transform duration-200"
               style={{ transform: sidebarOpen ? 'rotate(0deg)' : 'rotate(180deg)' }}
             />
           </button>
+
+          <button
+  onClick={() => setShowMobileCommunity(v => !v)}
+  className="md:hidden fixed bottom-6 right-4 z-30 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-full shadow-lg text-sm font-medium"
+>
+  <MessageSquare className="h-4 w-4" />
+  Community
+</button>
         </main>
 
         {/* Right: resizable community sidebar */}
-        <aside
-          className="shrink-0 border-l border-border/40 overflow-hidden relative flex"
-          style={{
-            width: sidebarOpen ? sidebarWidth : 0,
-            minWidth: sidebarOpen ? MIN_WIDTH : 0,
-            transition: isResizing.current ? 'none' : 'width 0.25s ease',
-          }}
-        >
+<aside
+  className={`border-l border-border/40 overflow-hidden relative flex
+    ${showMobileCommunity 
+      ? 'fixed inset-0 top-14 z-40 w-full md:relative md:inset-auto' 
+      : 'hidden md:flex'}
+  `}
+  style={{
+    width: showMobileCommunity ? undefined : sidebarOpen ? sidebarWidth : 0,
+    minWidth: (!showMobileCommunity && sidebarOpen) ? MIN_WIDTH : undefined,
+    transition: isResizing.current ? 'none' : 'width 0.25s ease',
+  }}
+>
           {/* Drag handle — sits on the left edge of the sidebar */}
           {sidebarOpen && (
             <div

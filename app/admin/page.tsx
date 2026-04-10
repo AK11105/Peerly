@@ -88,12 +88,12 @@ export default function AdminPanel() {
       <Navbar />
 
       <main className="min-h-screen">
-        <div className="flex">
+      <div className="flex flex-col md:flex-row">
           {/* Sidebar */}
-          <aside className="w-64 border-r border-border bg-background/50 sticky top-14 h-[calc(100vh-56px)] overflow-y-auto p-6">
+      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-background/50 md:sticky md:top-14 md:h-[calc(100vh-56px)] overflow-y-auto p-4 md:p-6">
             <h3 className="font-bold text-foreground mb-6">Admin Panel</h3>
 
-            <nav className="space-y-1 mb-8">
+            <nav className="flex md:flex-col gap-1 mb-4 md:mb-8 overflow-x-auto pb-2 md:pb-0">
               {[
                 { id: 'weaves', label: 'My Weaves' },
                 { id: 'pending', label: 'Pending Nodes', badge: pendingNodes.length > 0 ? pendingNodes.length : null },
@@ -104,7 +104,7 @@ export default function AdminPanel() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full text-left px-3 py-2 rounded text-sm transition-all flex items-center justify-between ${
+                  className={` shrink-0 w-full text-left px-3 py-2 rounded text-sm transition-all flex items-center justify-between ${
                     activeTab === item.id
                       ? 'bg-primary/10 text-primary font-medium border-l-2 border-l-primary'
                       : 'text-muted-foreground hover:text-foreground'
@@ -146,7 +146,7 @@ export default function AdminPanel() {
                     <Badge className="bg-primary/20 text-primary text-xs mt-1">Admin</Badge>
                   </div>
                   <Link href={`/weave/${weave.id}`}>
-                    <Button size="sm" variant="outline" className="w-full mt-2 border-border text-xs">Open Weave</Button>
+                    <Button size="sm" variant="outline" className="shrink-0 w-full mt-2 border-border text-xs">Open Weave</Button>
                   </Link>
                 </div>
               ) : (
@@ -169,7 +169,7 @@ export default function AdminPanel() {
                 ) : myWeaves.length === 0 ? (
                   <Card className="p-8 bg-card border-border text-center">
                     <p className="text-muted-foreground mb-4">No weaves to admin yet.</p>
-                    <Link href="/create"><Button className="bg-primary hover:bg-primary/90">Create a Weave</Button></Link>
+                    <Link href="/create"><Button className="shrink-0 bg-primary hover:bg-primary/90">Create a Weave</Button></Link>
                   </Card>
                 ) : (
                   <div className="space-y-4 max-w-3xl">
@@ -199,7 +199,7 @@ export default function AdminPanel() {
                           </div>
                           <div className="flex gap-2">
                             <Link href={`/weave/${w.id}`} onClick={(e) => e.stopPropagation()}>
-                              <Button size="sm" variant="outline" className="border-border text-xs">Open Weave →</Button>
+                              <Button size="sm" variant="outline" className="shrink-0 border-border text-xs">Open Weave →</Button>
                             </Link>
                             <Button
                               size="sm"
@@ -247,8 +247,8 @@ export default function AdminPanel() {
                             </div>
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <Button size="sm" className="bg-primary hover:bg-primary/90 text-xs" onClick={() => reviewNode(node.id, 'approve')}>Approve</Button>
-                            <Button size="sm" variant="outline" className="border-destructive/50 text-destructive hover:bg-destructive/10 text-xs" onClick={() => reviewNode(node.id, 'reject')}>Reject</Button>
+                            <Button size="sm" className="shrink-0 bg-primary hover:bg-primary/90 text-xs" onClick={() => reviewNode(node.id, 'approve')}>Approve</Button>
+                            <Button size="sm" variant="outline" className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10 text-xs" onClick={() => reviewNode(node.id, 'reject')}>Reject</Button>
                           </div>
                         </div>
                       </Card>

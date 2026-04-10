@@ -119,3 +119,9 @@
 .animate-float-up {
   animation: float-up 1.5s ease-out forwards;
 }
+
+@supports (height: 100dvh) {
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+}

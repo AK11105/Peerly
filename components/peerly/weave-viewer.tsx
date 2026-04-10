@@ -77,7 +77,7 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
       <CommunityProgressBar nodes={weave.nodes} />
 
       {/* Topic header */}
-      <div className="mb-6 flex items-center justify-between">
+<div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-balance text-xl font-semibold text-foreground">{weave.topic}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
