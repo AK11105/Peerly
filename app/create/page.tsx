@@ -40,9 +40,14 @@ function CreateWeaveForm() {
   // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setFieldDropdownOpen(false)
-      }
+if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+  const target = e.target as HTMLElement
+
+  // 👇 allow interaction with input fields
+  if (target.closest('input')) return
+
+  setFieldDropdownOpen(false)
+}
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
@@ -243,7 +248,7 @@ function CreateWeaveForm() {
             {/* Scaffold toggle */}
 <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3 mb-6">
   <div>
-    <p className="text-sm font-medium text-foreground">Include AI Scaffolds</p>
+    <p className="text-sm font-medium text-foreground">Generate AI Scaffolds</p>
     <p className="text-xs text-muted-foreground mt-0.5">
       AI drafts placeholder nodes for concepts not yet contributed
     </p>
