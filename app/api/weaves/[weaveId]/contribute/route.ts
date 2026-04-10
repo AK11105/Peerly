@@ -84,9 +84,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
 
   await supabase.rpc('ensure_user', { p_username: userId })
   await supabase.from('contributions').insert({ weave_id: weaveId, node_id: target.id, username: userId, type: 'scaffold_fill', lumens_earned: 50 })
-  const { data: earnData, error: earnErr } = await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 50 })
-  if (earnErr) console.error('[earn_lumens contribute FAILED]', earnErr.message, { userId })
-  else console.log('[earn_lumens contribute OK]', { userId, newBalance: earnData })
+//   const { data: earnData, error: earnErr } = await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 50 })
+//   if (earnErr) console.error('[earn_lumens contribute FAILED]', earnErr.message, { userId })
+//   else console.log('[earn_lumens contribute OK]', { userId, newBalance: earnData })
 
   runGapDetection(weaveId, weave.topic, title, description)
 

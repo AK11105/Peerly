@@ -24,6 +24,7 @@ export function LumensProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!username) return
 
+    console.log("SUBSCRIBED TO REALTIME")
     const clerkDisplayName = user?.username ?? user?.firstName ?? null
 
     const fetchBalance = () =>
@@ -46,7 +47,7 @@ export function LumensProvider({ children }: { children: ReactNode }) {
     const channel = supabase
       .channel(`lumens:${username}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lumens', filter: `username=eq.${username}` },
-        (payload) => setBalance((payload.new as any).balance)
+        (payload) => setBalance(Math.max(0, (payload.new as any).balance))
       )
       .subscribe()
 
@@ -55,37 +56,69 @@ export function LumensProvider({ children }: { children: ReactNode }) {
     return () => { supabase.removeChannel(channel); window.removeEventListener('focus', fetchBalance) }
   }, [username])
 
-  const refetchBalance = useCallback(async (expectedMin?: number) => {
-    if (!username) return
-    // Retry up to 5 times (2s total) waiting for the DB write to be visible
-    for (let i = 0; i < 5; i++) {
-      await new Promise(r => setTimeout(r, 400))
-      const { data } = await supabase.from('lumens').select('balance').eq('username', username).single()
-      if (data) {
-        setBalance(data.balance)
-        if (expectedMin === undefined || data.balance >= expectedMin) break
-      }
-    }
-  }, [username])
+  const refetchBalance = useCallback(async () => {
+  if (!username) return
 
-  const earn = useCallback(async (amount: number) => {
-    if (!username) return
-    await refetchBalance(balance + amount)
-    setRecentChange({ amount, type: 'earn' })
-  }, [username, balance, refetchBalance])
+  const { data } = await supabase
+    .from('lumens')
+    .select('balance')
+    .eq('username', username)
+    .single()
 
-  const spend = useCallback(async (amount: number): Promise<boolean> => {
-    if (!username) return false
-    const res = await fetch('/api/lumens/spend', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount }),
-    })
-    if (!res.ok) return false
-    await refetchBalance(balance - amount)
-    setRecentChange({ amount, type: 'spend' })
-    return true
-  }, [username, balance, refetchBalance])
+  if (data) {
+    setBalance(Math.max(0, data.balance)) // 🛑 safety clamp
+  }
+},  [username])
+
+const earn = useCallback(async (amount: number) => {
+  if (!username) return
+
+  // 🔹 Try atomic-style update using current balance condition
+  const { data: current } = await supabase
+    .from('lumens')
+    .select('balance')
+    .eq('username', username)
+    .single()
+
+  if (!current) return
+
+  const { error } = await supabase
+    .from('lumens')
+    .update({ balance: current.balance + amount })
+    .eq('username', username)
+    .eq('balance', current.balance) // 🔥 THIS LINE PREVENTS DOUBLE WRITE
+
+  if (error) {
+    // Another update happened → retry once
+    console.warn("Retrying earn due to race condition")
+    return earn(amount)
+  }
+console.log("EARN TRIGGERED")
+  setRecentChange({ amount, type: 'earn' })
+}, [username])
+
+ const spend = useCallback(async (amount: number): Promise<boolean> => {
+  if (!username) return false
+
+  // 🚫 BLOCK if not enough balance
+  if (balance < amount) {
+    console.error("Not enough lumens")
+    return false
+  }
+
+  const res = await fetch('/api/lumens/spend', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount }),
+  })
+
+  if (!res.ok) return false
+
+  await refetchBalance() // ❗ REMOVE expectedMin
+  setRecentChange({ amount, type: 'spend' })
+
+  return true
+}, [username, balance, refetchBalance])
 
   const clearRecentChange = useCallback(() => setRecentChange(null), [])
 

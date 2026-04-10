@@ -44,7 +44,7 @@ export async function POST(
   await supabase.from('contributions').insert({
     weave_id: weaveId, node_id: nodeId, username: userId, type: 'perspective', lumens_earned: 25,
   })
-  await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 25 })
+//   await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 25 })
 
   return NextResponse.json(updated)
 }
