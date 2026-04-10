@@ -118,17 +118,21 @@ Reply ONLY JSON: {"relevant":true|false,"reason":"one sentence"}`
     console.warn('[relevance] check failed, allowing through:', e)
   }
 
-  // 2. Formatter agent — assign correct depth + difficulty
+  // 2. Formatter agent — assign correct depth + difficulty, then verify order
   const { data: existingNodes } = await supabase
     .from('nodes').select('title,depth,difficulty').eq('weave_id', weaveId).eq('status', 'approved')
   let depth = 0
   let difficulty = 3
 
   if (existingNodes?.length) {
-    const summary = existingNodes.map((n: any) => `- [depth:${n.depth}/diff:${n.difficulty}] ${n.title}`).join('\n')
+    const sorted = [...existingNodes].sort((a, b) => a.depth - b.depth || a.difficulty - b.difficulty)
+    const summary = sorted.map((n: any) => `- [depth:${n.depth}/diff:${n.difficulty}] ${n.title}`).join('\n')
+    const maxDepth = Math.max(...existingNodes.map((n: any) => n.depth))
+
+    // Step A: assign depth + difficulty
     const formatterPrompt = `Learning map topic: "${weave.topic}"
 
-Existing nodes (depth/difficulty):
+Existing nodes ordered by depth/difficulty:
 ${summary}
 
 New node: "${title}" — ${description}
@@ -139,12 +143,44 @@ Reply ONLY JSON: {"depth":<int>,"difficulty":<1-5>,"reasoning":"one sentence"}`
     try {
       const raw = await callAI(formatterPrompt)
       const fmt = parseJSON(raw)
-      const maxDepth = Math.max(...existingNodes.map((n: any) => n.depth))
       depth = Math.min(Math.max(0, Number(fmt.depth) || 0), maxDepth + 1)
       difficulty = Math.min(5, Math.max(1, Math.round(Number(fmt.difficulty) || 3)))
       console.log('[formatter]', title, `→ depth:${depth} diff:${difficulty} |`, fmt.reasoning)
     } catch (e) {
       console.warn('[formatter] failed, using defaults:', e)
+    }
+
+    // Step B: order validation — verify placement is coherent with neighbors
+    const withNew = [...sorted, { title, depth, difficulty }].sort((a, b) => a.depth - b.depth || a.difficulty - b.difficulty)
+    const newIndex = withNew.findIndex((n) => n.title === title)
+    const before = withNew[newIndex - 1]
+    const after = withNew[newIndex + 1]
+
+    const validationPrompt = `Learning map topic: "${weave.topic}"
+
+Full node order (sorted by depth/difficulty):
+${withNew.map((n) => `- [depth:${n.depth}/diff:${n.difficulty}] ${n.title}`).join('\n')}
+
+Newly placed node: "${title}" at depth:${depth} diff:${difficulty}
+${before ? `Node before it: "${before.title}" [depth:${before.depth}/diff:${before.difficulty}]` : 'No node before (this is first)'}
+${after ? `Node after it: "${after.title}" [depth:${after.depth}/diff:${after.difficulty}]` : 'No node after (this is last)'}
+
+Is this placement correct? Does "${title}" logically follow "${before?.title ?? 'nothing'}" and precede "${after?.title ?? 'nothing'}" as a prerequisite?
+If the depth or difficulty should be adjusted, provide corrected values.
+
+Reply ONLY JSON: {"placement_ok":true|false,"corrected_depth":<int>|null,"corrected_difficulty":<1-5>|null,"comment":"one sentence"}`
+
+    try {
+      const raw = await callAI(validationPrompt)
+      const val = parseJSON(raw)
+      console.log('[order-validation]', title, `placement_ok:${val.placement_ok} |`, val.comment)
+      if (!val.placement_ok && val.corrected_depth !== null) {
+        depth = Math.min(Math.max(0, Number(val.corrected_depth)), maxDepth + 1)
+        difficulty = Math.min(5, Math.max(1, Math.round(Number(val.corrected_difficulty) || difficulty)))
+        console.log('[order-validation] corrected →', `depth:${depth} diff:${difficulty}`)
+      }
+    } catch (e) {
+      console.warn('[order-validation] failed, keeping formatter values:', e)
     }
   }
 
