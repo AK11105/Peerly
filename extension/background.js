@@ -1,4 +1,4 @@
-const PEERLY_BASE = 'https://cary-funnier-lauryn.ngrok-free.dev'
+const PEERLY_BASE = 'https://loom-v0.vercel.app'
 
 // Firefox uses `browser`, Chrome uses `chrome`
 const ext = typeof browser !== 'undefined' ? browser : chrome
