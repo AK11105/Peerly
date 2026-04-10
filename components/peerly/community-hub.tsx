@@ -87,6 +87,9 @@ function insertMention(value: string, cursor: number, username: string): { text:
 
 /** Render text with @mentions highlighted */
 function renderWithMentions(text: string) {
+
+
+
   const parts = text.split(/(@\w+)/g)
   return parts.map((part, i) =>
     part.startsWith('@')
@@ -94,6 +97,33 @@ function renderWithMentions(text: string) {
       : <span key={i}>{part}</span>
   )
 }
+
+
+
+function renderTextWithLinksAndMentions(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = text.split(urlRegex)
+
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 underline hover:text-blue-400 break-all"
+        >
+          {part}
+        </a>
+      )
+    }
+
+    return renderWithMentions(part)
+  })
+}
+
+
 
 // ── Seed data ──────────────────────────────────────────────────────────────
 
@@ -866,7 +896,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     ))
     setConfirmDelete(null)
     if (weaveId !== 'global') await deleteMessage(weaveId, msgId, userId ?? undefined)
-    toast('Post deleted.', { style: { borderLeft: '3px solid #EF4444' } })
+    // toast('Post deleted.', { style: { borderLeft: '3px solid #EF4444' } })
   }, [activeChannelId, weaveId])
 
   const handleDeleteReply = useCallback(async (msgId: string, replyId: string) => {
@@ -880,7 +910,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     ))
     setConfirmDelete(null)
     if (weaveId !== 'global') await deleteReply(msgId, replyId, userId ?? undefined)
-    toast('Reply deleted.', { style: { borderLeft: '3px solid #EF4444' } })
+    // toast('Reply deleted.', { style: { borderLeft: '3px solid #EF4444' } })
   }, [activeChannelId, weaveId])
 
   const handleSend = useCallback(async () => {
@@ -925,7 +955,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
       await new Promise(r => setTimeout(r, 400))
       setSending(false)
       earn(2)
-      toast.success('Reply posted! +2 LM', { style: { borderLeft: '3px solid #22C55E' } })
+    //   toast.success('Reply posted! +2 LM', { style: { borderLeft: '3px solid #22C55E' } })
     } else {
       // /query: post into the first query channel (help), switch to it
       const targetChannelId = isQueryCommand
@@ -977,12 +1007,12 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
       }
       setSending(false)
       earn(isQueryCommand || targetChannel.isQuery ? 5 : 2)
-      toast.success(
-        isQueryCommand ? 'Question escalated to #' + targetChannel.name + '! +5 LM'
-          : targetChannel.isQuery ? 'Question posted! +5 LM'
-          : 'Message sent! +2 LM',
-        { style: { borderLeft: '3px solid #22C55E' } }
-      )
+    //   toast.success(
+    //     isQueryCommand ? 'Question escalated to #' + targetChannel.name + '! +5 LM'
+    //       : targetChannel.isQuery ? 'Question posted! +5 LM'
+    //       : 'Message sent! +2 LM',
+    //     { style: { borderLeft: '3px solid #22C55E' } }
+    //   )
     }
   }, [msgInput, replyingTo, activeChannel, activeChannelId, channels, earn, mainImages, replyImages, mainPreview, replyPreview])
 
@@ -1038,7 +1068,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     setNewPostText('')
     clearMedia('modal')
     earn(isQ ? 5 : 2)
-    toast.success(`Posted to #${targetChannel.name}! ${isQ ? '+5 LM' : '+2 LM'}`, { style: { borderLeft: '3px solid #22C55E' } })
+    // toast.success(`Posted to #${targetChannel.name}! ${isQ ? '+5 LM' : '+2 LM'}`, { style: { borderLeft: '3px solid #22C55E' } })
   }, [newPostText, newPostType, newPostChannelId, channels, earn, modalImages, modalPreview])
 
   // Promote a discussion message to the first available query channel
@@ -1057,7 +1087,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
       return ch
     }))
     setActiveChannelId(targetChannel.id)
-    toast('🔀 Promoted to #' + targetChannel.name, { style: { borderLeft: '3px solid #6366f1' } })
+    // toast('🔀 Promoted to #' + targetChannel.name, { style: { borderLeft: '3px solid #6366f1' } })
   }, [channels, activeChannelId])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -1379,9 +1409,14 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
             </div>
 
             {/* Message text */}
-            {msg.text && <p className="text-xs leading-relaxed text-muted-foreground">{renderWithMentions(msg.text)}</p>}
+            {msg.text && (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                    {renderTextWithLinksAndMentions(msg.text)}
+                </p>
+                )}
 
             {/* Attached images */}
+            
             {msg.images && msg.images.length > 0 && (
               <div className={`mt-2 grid gap-1 ${msg.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 {msg.images.map((src, i) => (
@@ -1475,8 +1510,11 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
                       <span className="text-[11px] font-bold text-foreground">@{r.username}</span>
                       <span className="text-[10px] text-muted-foreground">{r.timestamp}</span>
                     </div>
-                    {r.text && <p className="text-[11px] leading-relaxed text-muted-foreground">{renderWithMentions(r.text)}</p>}
-
+                    {r.text && (
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        {renderTextWithLinksAndMentions(r.text)}
+                    </p>
+                    )}
                     {/* Reply images */}
                     {r.images && r.images.length > 0 && (
                       <div className={`mt-1.5 grid gap-1 ${r.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
