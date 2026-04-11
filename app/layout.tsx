@@ -15,7 +15,7 @@ const lexend = Lexend({
 })
 
 export const metadata: Metadata = {
-  title: 'Loom - From chaos to clarity',
+  title: 'Peerly - From chaos to clarity',
   description: 'Build and explore collaborative knowledge weaves with AI-powered scaffolding.',
   generator: 'v0.app',
 }

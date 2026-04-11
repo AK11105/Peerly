@@ -288,7 +288,7 @@ export default function ExplorePage() {
               <div className="rounded-lg border border-dashed border-border p-4 text-center">
                 <p className="text-xs text-muted-foreground mb-2">Reach learners worldwide</p>
                 <Link href="/advertise">
-                  <Button variant="outline" size="sm" className="w-full text-xs">Advertise on Loom</Button>
+                  <Button variant="outline" size="sm" className="w-full text-xs">Advertise on Peerly</Button>
                 </Link>
               </div>
             </div>
