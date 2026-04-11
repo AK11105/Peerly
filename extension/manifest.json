@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Loom by Peerly",
+  "name": "Loom - turn chaos to clarity",
   "version": "1.0.0",
   "description": "Prefix any URL with loom. to instantly create a Peerly weave from that page.",
   "permissions": ["webNavigation", "tabs"],

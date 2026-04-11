@@ -10,6 +10,8 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 import { useOnboarding } from '@/hooks/use-onboarding'
 import { RedeemDialog } from './redeem-dialog'
 import { OnboardingTour } from './onboarding-tour'
+import Image from "next/image";
+
 
 
 
@@ -84,9 +86,16 @@ const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
           {/* Logo + Weave Title */}
           <div className="flex items-center gap-3">
             <Link href="/explore" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <div className="flex h-7 w-14 items-center justify-center rounded-full bg-primary/20">
-                <span className="text-xs font-bold text-light-foreground">LO_OM </span>
-              </div>
+              {/* <div className="flex h-7 w-14 items-center justify-center rounded-full bg-primary/20"> */}
+<Image
+  src="/icon.png"
+  alt="icon"
+  width={37}
+  height={37}
+  className="rounded-full"
+/>
+{/* </div> */}
+              {/* </div> */}
               {/* <span className="text-sm font-semibold tracking-wide text-foreground">Loom</span> */}
             </Link>
             {showWeaveTitle && (
