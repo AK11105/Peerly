@@ -29,7 +29,10 @@ export async function POST(
   if (fetchErr || !target) return NextResponse.json({ error: 'Node not found' }, { status: 404 })
 
   const author = body.contributed_by ?? userId
-  const appended = `${target.description}\n\n---\n\n**${author}:** ${body.description}`
+  const attachmentsSuffix = body.attachments?.length
+    ? `\nAttachments: ${JSON.stringify(body.attachments)}`
+    : ''
+  const appended = `${target.description}\n\n---\n\n**${author}:** ${body.description}${attachmentsSuffix}`
 
   const { data: updated, error: updateErr } = await supabase
     .from('nodes')

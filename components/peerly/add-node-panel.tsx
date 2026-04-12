@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { MediaUpload } from '@/components/peerly/media-upload'
 import { addNode, ProRequiredError } from '@/lib/api'
 import { useLumens } from '@/lib/lumens-context'
 import { useCurrentUser } from '@/hooks/use-current-user'
@@ -19,25 +20,45 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [links, setLinks] = useState<string[]>([''])
+  const [attachments, setAttachments] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const { earn } = useLumens()
   const currentUser = useCurrentUser()
+
+  const reset = () => {
+    setTitle(''); setDescription(''); setLinks(['']); setAttachments([])
+  }
+
+  const updateLink = (i: number, val: string) => setLinks(prev => prev.map((l, idx) => idx === i ? val : l))
+  const addLink = () => setLinks(prev => [...prev, ''])
+  const removeLink = (i: number) => setLinks(prev => prev.filter((_, idx) => idx !== i))
 
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim()) {
       toast.error('Please fill in both fields.')
       return
     }
+    // Validate links
+    const validLinks = links.map(l => l.trim()).filter(Boolean)
+    for (const l of validLinks) {
+      try { new URL(l) } catch { toast.error(`Invalid URL: ${l}`); return }
+    }
+
+    // Build description with links + attachments embedded
+    let fullDescription = description.trim()
+    if (validLinks.length) fullDescription += '\n' + validLinks.map(l => `Reference: ${l}`).join('\n')
+    if (attachments.length) fullDescription += `\nAttachments: ${JSON.stringify(attachments)}`
+
     setIsLoading(true)
     try {
       const data = await addNode(weaveId, {
         title: title.trim(),
-        description: description.trim(),
+        description: fullDescription,
         contributed_by: currentUser?.displayName ?? 'anonymous',
         user_id: currentUser?.id,
       })
-      setTitle('')
-      setDescription('')
+      reset()
       setIsExpanded(false)
       onRefresh()
       if (data?.status === 'pending') {
@@ -66,7 +87,7 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
       {isExpanded && (
         <div
           className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm transition-opacity duration-300"
-          onClick={() => { setIsExpanded(false); setTitle(''); setDescription('') }}
+          onClick={() => { setIsExpanded(false); reset() }}
         />
       )}
 
@@ -82,7 +103,7 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
         </button>
 
         <div
-          className={`absolute left-0 top-0 w-64 origin-top-left transition-all duration-300 ease-out ${
+          className={`absolute left-0 top-0 w-72 origin-top-left transition-all duration-300 ease-out ${
             isExpanded ? 'scale-100 opacity-100' : 'pointer-events-none scale-75 opacity-0'
           }`}
         >
@@ -90,14 +111,10 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm font-semibold text-foreground">New Node</span>
               <button
-                onClick={() => { setIsExpanded(false); setTitle(''); setDescription('') }}
+                onClick={() => { setIsExpanded(false); reset() }}
                 className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-muted-foreground transition-all duration-300 hover:bg-secondary/80 hover:text-foreground"
-                aria-label="Close"
               >
-                <Plus
-                  className={`h-4 w-4 transition-transform duration-300 ${isExpanded ? 'rotate-45' : 'rotate-0'}`}
-                  strokeWidth={2.5}
-                />
+                <Plus className="h-4 w-4 rotate-45" strokeWidth={2.5} />
               </button>
             </div>
 
@@ -115,6 +132,40 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
                 rows={4}
                 className="resize-none bg-background border-border text-foreground placeholder:text-muted-foreground"
               />
+
+              {/* Multi-link inputs */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Links <span className="text-muted-foreground/50">(optional)</span></label>
+                {links.map((link, i) => (
+                  <div key={i} className="flex gap-1.5">
+                    <Input
+                      placeholder="https://..."
+                      value={link}
+                      onChange={(e) => updateLink(i, e.target.value)}
+                      className="bg-background border-border text-foreground placeholder:text-muted-foreground text-xs h-8"
+                    />
+                    {links.length > 1 && (
+                      <button onClick={() => removeLink(i)} className="text-muted-foreground hover:text-destructive shrink-0">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={addLink}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline w-fit"
+                >
+                  <Plus className="h-3 w-3" /> Add another link
+                </button>
+              </div>
+
+              {/* Attachments */}
+              <MediaUpload
+                onUploaded={urls => setAttachments(prev => [...prev, ...urls])}
+                existingUrls={attachments}
+                onRemove={url => setAttachments(prev => prev.filter(u => u !== url))}
+              />
+
               <Button
                 onClick={handleSubmit}
                 disabled={isLoading}

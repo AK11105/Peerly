@@ -1,17 +1,15 @@
 'use client'
 
 import { useState } from 'react'
+import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
+import { MediaUpload } from '@/components/peerly/media-upload'
 import type { WeaveNode } from '@/lib/types'
 import { ProRequiredError } from '@/lib/api'
 import { useLumens } from '@/lib/lumens-context'
@@ -25,78 +23,50 @@ interface AddPerspectiveModalProps {
   onRefresh: () => void
 }
 
-async function submitPerspective(
-  weaveId: string,
-  nodeId: string,
-  description: string,
-  link: string,
-  contributedBy: string,
-  userId?: string
-) {
-  const fullDescription = link.trim()
-    ? `${description.trim()}\nReference: ${link.trim()}`
-    : description.trim()
-
-  const res = await fetch(`/api/weaves/${weaveId}/nodes/${nodeId}/contribute`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      weave_id: weaveId,
-      title: '',           // not used for perspectives — backend ignores it
-      description: fullDescription,
-      contributed_by: contributedBy,
-      user_id: userId,
-    }),
-  })
-  if (res.status === 403) throw new ProRequiredError()
-  if (!res.ok) throw new Error('Failed to add perspective')
-  return res.json()
-}
-
-export function AddPerspectiveModal({
-  node,
-  weaveId,
-  open,
-  onOpenChange,
-  onRefresh,
-}: AddPerspectiveModalProps) {
+export function AddPerspectiveModal({ node, weaveId, open, onOpenChange, onRefresh }: AddPerspectiveModalProps) {
   const [description, setDescription] = useState('')
-  const [link, setLink] = useState('')
-  const [linkError, setLinkError] = useState('')
+  const [links, setLinks] = useState<string[]>([''])
+  const [attachments, setAttachments] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const { earn } = useLumens()
   const currentUser = useCurrentUser()
 
-  const validateLink = (value: string) => {
-    if (!value.trim()) { setLinkError(''); return true }
-    try { new URL(value); setLinkError(''); return true }
-    catch { setLinkError('Enter a valid URL (e.g. https://example.com)'); return false }
-  }
+  const updateLink = (i: number, val: string) => setLinks(prev => prev.map((l, idx) => idx === i ? val : l))
 
   const handleClose = () => {
     onOpenChange(false)
-    setDescription('')
-    setLink('')
-    setLinkError('')
+    setDescription(''); setLinks(['']); setAttachments([])
   }
 
   const handleSubmit = async () => {
-    if (!node) return
-    if (!description.trim()) {
-      toast.error('Please write your explanation.')
-      return
+    if (!node || !description.trim()) { toast.error('Please write your explanation.'); return }
+
+    const validLinks = links.map(l => l.trim()).filter(Boolean)
+    for (const l of validLinks) {
+      try { new URL(l) } catch { toast.error(`Invalid URL: ${l}`); return }
     }
-    if (!validateLink(link)) return
+
+    let fullDescription = description.trim()
+    if (validLinks.length) fullDescription += '\n' + validLinks.map(l => `Reference: ${l}`).join('\n')
+    if (attachments.length) fullDescription += `\nAttachments: ${JSON.stringify(attachments)}`
 
     setIsLoading(true)
     try {
-      await submitPerspective(weaveId, node.id, description, link, currentUser?.displayName ?? 'anonymous', currentUser?.id)
-      earn(25)
-      handleClose()
-      onRefresh()
-      toast.success('+25 LM earned! Your perspective was added.', {
-        style: { borderLeft: '3px solid #22C55E' },
+      const res = await fetch(`/api/weaves/${weaveId}/nodes/${node.id}/contribute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          weave_id: weaveId, title: '',
+          description: fullDescription,
+          contributed_by: currentUser?.displayName ?? 'anonymous',
+          user_id: currentUser?.id,
+          attachments,
+        }),
       })
+      if (res.status === 403) throw new ProRequiredError()
+      if (!res.ok) throw new Error('Failed')
+      earn(25); handleClose(); onRefresh()
+      toast.success('+25 LM earned! Your perspective was added.', { style: { borderLeft: '3px solid #22C55E' } })
     } catch (err) {
       if (err instanceof ProRequiredError) {
         toast.info('Pro plan required.', { description: 'Paid plans are coming soon. Stay tuned!', action: { label: 'See Plans', onClick: () => window.location.href = '/pricing' } })
@@ -127,45 +97,39 @@ export function AddPerspectiveModal({
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Your explanation <span className="text-destructive">*</span>
-            </label>
-            <Textarea
-              placeholder="Write your own take on this concept..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
-              className="resize-none bg-background border-border text-foreground placeholder:text-muted-foreground"
-            />
+            <label className="text-xs font-medium text-muted-foreground">Your explanation <span className="text-destructive">*</span></label>
+            <Textarea placeholder="Write your own take on this concept..." value={description}
+              onChange={e => setDescription(e.target.value)} rows={5}
+              className="resize-none bg-background border-border text-foreground placeholder:text-muted-foreground" />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Link <span className="text-muted-foreground/60">(optional)</span>
-            </label>
-            <Input
-              placeholder="https://..."
-              value={link}
-              onChange={(e) => { setLink(e.target.value); if (linkError) validateLink(e.target.value) }}
-              onBlur={() => validateLink(link)}
-              className="bg-background border-border text-foreground placeholder:text-muted-foreground"
-            />
-            {linkError && <p className="text-xs text-destructive">{linkError}</p>}
+            <label className="text-xs font-medium text-muted-foreground">Links <span className="text-muted-foreground/60">(optional)</span></label>
+            {links.map((link, i) => (
+              <div key={i} className="flex gap-1.5">
+                <Input placeholder="https://..." value={link} onChange={e => updateLink(i, e.target.value)}
+                  className="bg-background border-border text-foreground placeholder:text-muted-foreground" />
+                {links.length > 1 && (
+                  <button onClick={() => setLinks(prev => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive shrink-0">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button onClick={() => setLinks(prev => [...prev, ''])} className="flex items-center gap-1 text-xs text-primary hover:underline w-fit">
+              <Plus className="h-3 w-3" /> Add another link
+            </button>
           </div>
 
+          <MediaUpload
+            onUploaded={urls => setAttachments(prev => [...prev, ...urls])}
+            existingUrls={attachments}
+            onRemove={url => setAttachments(prev => prev.filter(u => u !== url))}
+          />
+
           <div className="flex items-center gap-3 pt-1">
-            <Button
-              variant="outline"
-              onClick={handleClose}
-              className="flex-1 border-border text-muted-foreground hover:text-foreground"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={isLoading}
-              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
-            >
+            <Button variant="outline" onClick={handleClose} className="flex-1 border-border text-muted-foreground hover:text-foreground">Cancel</Button>
+            <Button onClick={handleSubmit} disabled={isLoading} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
               {isLoading ? 'Saving…' : 'Submit · +25 LM'}
             </Button>
           </div>

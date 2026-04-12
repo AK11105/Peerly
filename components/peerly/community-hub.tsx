@@ -6,6 +6,7 @@ import {
   ChevronRight, ChevronDown, Users, Zap, Plus, Search, Send, X, CornerDownRight, Trash2, Paperclip
 } from 'lucide-react'
 import { SponsoredCard, SPONSORED_ADS } from './sponsored-card'
+import { RichContent } from './rich-content'
 import { toast } from 'sonner'
 import { useLumens } from '@/lib/lumens-context'
 import { useCurrentUser } from '@/hooks/use-current-user'
@@ -422,16 +423,20 @@ function genId() {
   return Math.random().toString(36).slice(2, 9)
 }
 
-/** Read File objects to base64 data-URL strings */
-async function readFilesAsBase64(files: FileList | File[]): Promise<string[]> {
-  return Promise.all(Array.from(files).map(file =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload  = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-  ))
+/** Upload files to Supabase Storage and return public URLs */
+async function uploadFilesToStorage(files: FileList | File[]): Promise<string[]> {
+  const { supabase: sb } = await import('@/lib/supabase')
+  const urls: string[] = []
+  for (const file of Array.from(files)) {
+    const ext = file.name.split('.').pop()
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { error } = await sb.storage.from('attachments').upload(path, file, { upsert: false })
+    if (!error) {
+      const { data } = sb.storage.from('attachments').getPublicUrl(path)
+      urls.push(data.publicUrl)
+    }
+  }
+  return urls
 }
 
 /** Extract domain from URL */
@@ -547,6 +552,7 @@ function dbRowToMessage(r: DbMessage, userId: string | null): Message {
     isQuestion: r.is_question,
     upvotes: r.upvotes,
     isOwn: r.username === userId,
+    images: (r as any).attachments ?? undefined,
     replies: (r.community_replies ?? []).map(rep => {
       const repName = toDisplayName(rep.display_name, rep.username)
       return {
@@ -558,6 +564,7 @@ function dbRowToMessage(r: DbMessage, userId: string | null): Message {
         text: rep.text,
         upvotes: rep.upvotes,
         isOwn: rep.username === userId,
+        images: (rep as any).attachments ?? undefined,
       }
     }),
   }
@@ -951,7 +958,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
         }
       ))
       setReplyingTo(null)
-      if (weaveId !== 'global') await postReply(replyingTo, text, userId ?? undefined)
+      if (weaveId !== 'global') await postReply(replyingTo, text, userId ?? undefined, images.length > 0 ? images : undefined)
       await new Promise(r => setTimeout(r, 400))
       setSending(false)
       earn(2)
@@ -987,7 +994,7 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
         toast('🔀 Escalated to #' + targetChannel.name, { style: { borderLeft: '3px solid #6366f1' } })
       }
       if (weaveId !== 'global') {
-        const saved = await postMessage(weaveId, targetChannelId, text, isQueryCommand || targetChannel.isQuery, userId ?? undefined)
+        const saved = await postMessage(weaveId, targetChannelId, text, isQueryCommand || targetChannel.isQuery, userId ?? undefined, images.length > 0 ? images : undefined)
         if (saved) {
           setChannels(prev => prev.map(ch =>
             ch.id !== targetChannelId ? ch : {
@@ -1187,8 +1194,8 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
     setter: React.Dispatch<React.SetStateAction<string[]>>,
   ) {
     if (!files || files.length === 0) return
-    const imgs = await readFilesAsBase64(files)
-    setter(prev => [...prev, ...imgs].slice(0, 4)) // max 4 images
+    const urls = await uploadFilesToStorage(files)
+    setter(prev => [...prev, ...urls].slice(0, 4))
   }
 
   function removeImage(
@@ -1408,27 +1415,13 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
               )}
             </div>
 
-            {/* Message text */}
+            {/* Message text + attachments */}
             {msg.text && (
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                    {renderTextWithLinksAndMentions(msg.text)}
-                </p>
-                )}
-
-            {/* Attached images */}
-            
-            {msg.images && msg.images.length > 0 && (
-              <div className={`mt-2 grid gap-1 ${msg.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                {msg.images.map((src, i) => (
-                  <img
-                    key={i}
-                    src={src}
-                    alt=""
-                    className="rounded-md object-cover w-full max-h-48 cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => setLightboxSrc(src)}
-                  />
-                ))}
-              </div>
+              <RichContent
+                text={msg.text}
+                attachments={msg.images}
+                className="text-xs"
+              />
             )}
 
             {/* Link preview */}
@@ -1511,25 +1504,8 @@ export function CommunityHub({ weaveId = 'global', weaveName }: CommunityHubProp
                       <span className="text-[10px] text-muted-foreground">{r.timestamp}</span>
                     </div>
                     {r.text && (
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">
-                        {renderTextWithLinksAndMentions(r.text)}
-                    </p>
+                      <RichContent text={r.text} attachments={r.images} className="text-[11px]" />
                     )}
-                    {/* Reply images */}
-                    {r.images && r.images.length > 0 && (
-                      <div className={`mt-1.5 grid gap-1 ${r.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                        {r.images.map((src, i) => (
-                          <img
-                            key={i}
-                            src={src}
-                            alt=""
-                            className="rounded-md object-cover w-full max-h-36 cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() => setLightboxSrc(src)}
-                          />
-                        ))}
-                      </div>
-                    )}
-
                     {/* Reply link preview */}
                     {r.linkPreview && <LinkPreviewCard preview={r.linkPreview} />}
 

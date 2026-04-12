@@ -62,14 +62,27 @@ function parseContributions(node: WeaveNode): Contribution[] {
   return rawBlocks.map((block, idx) => {
     const authorMatch = block.match(/^\*\*(.+?)\*\*:\s*/)
     const author = authorMatch ? authorMatch[1] : (node.contributed_by ?? 'community')
-    const text = authorMatch ? block.slice(authorMatch[0].length) : block
-    // Strip "Reference: url" suffix into link field
-    const refMatch = text.match(/\nReference: (.+)$/)
+    let text = authorMatch ? block.slice(authorMatch[0].length) : block
+
+    const refMatch = text.match(/\nReference: (.+?)(\nAttachments:|$)/)
+    const link = refMatch ? refMatch[1].trim() : undefined
+    if (refMatch) text = text.slice(0, refMatch.index) + text.slice(refMatch.index! + refMatch[0].length)
+
+    const attMatch = text.match(/\nAttachments: (\[.+?\])/)
+    let attachments: string[] | undefined
+    try { if (attMatch) attachments = JSON.parse(attMatch[1]) } catch {}
+    if (attMatch) text = text.slice(0, attMatch.index)
+
+    if (idx === 0 && !attachments && (node as any).attachments?.length) {
+      attachments = (node as any).attachments
+    }
+
     return {
       id: `${node.id}-contrib-${idx}`,
       author,
-      text: refMatch ? text.slice(0, refMatch.index) : text,
-      link: refMatch ? refMatch[1] : undefined,
+      text: text.trim(),
+      link,
+      attachments,
       order: idx,
     }
   })

@@ -29,11 +29,11 @@ export async function fetchMessages(weaveId: string, channel: string): Promise<D
   return res.json()
 }
 
-export async function postMessage(weaveId: string, channel: string, text: string, isQuestion = false, username?: string): Promise<DbMessage | null> {
+export async function postMessage(weaveId: string, channel: string, text: string, isQuestion = false, username?: string, attachments?: string[]): Promise<DbMessage | null> {
   const res = await fetch(`/api/community/${weaveId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ channel, username, text, is_question: isQuestion }),
+    body: JSON.stringify({ channel, username, text, is_question: isQuestion, attachments }),
   })
   if (!res.ok) return null
   return res.json()
@@ -47,11 +47,11 @@ export async function deleteMessage(weaveId: string, id: string, username?: stri
   })
 }
 
-export async function postReply(messageId: string, text: string, username?: string): Promise<DbReply | null> {
+export async function postReply(messageId: string, text: string, username?: string, attachments?: string[]): Promise<DbReply | null> {
   const res = await fetch(`/api/community/messages/${messageId}/replies`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, text }),
+    body: JSON.stringify({ username, text, attachments }),
   })
   if (!res.ok) return null
   return res.json()

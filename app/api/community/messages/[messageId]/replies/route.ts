@@ -13,12 +13,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ message
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { messageId } = await params
-  const { text } = await req.json()
+  const { text, attachments } = await req.json()
   await syncUser(userId)
 
   const { data, error } = await supabase
     .from('community_replies')
-    .insert({ message_id: messageId, username: userId, text })
+    .insert({ message_id: messageId, username: userId, text, attachments: attachments ?? null })
     .select()
     .single()
 

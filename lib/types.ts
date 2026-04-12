@@ -37,6 +37,7 @@ export interface AddNodePayload {
   description: string
   contributed_by: string
   user_id?: string
+  attachments?: string[]
 }
 
 export interface AddNodeResponse {
@@ -51,4 +52,5 @@ export interface ContributePayload {
   description: string
   contributed_by: string
   user_id?: string
+  attachments?: string[]
 }

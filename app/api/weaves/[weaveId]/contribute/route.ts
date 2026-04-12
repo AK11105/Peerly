@@ -78,7 +78,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
 
   const { error: updateErr } = await supabase
     .from('nodes')
-    .update({ title, description, is_scaffold: false, contributed_by: contributedBy, status: 'approved' })
+    .update({ title, description, is_scaffold: false, contributed_by: contributedBy, status: 'approved', attachments: body.attachments ?? null })
     .eq('id', target.id)
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
 

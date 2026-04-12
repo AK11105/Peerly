@@ -11,6 +11,7 @@ import {
 import { Navbar } from '@/components/peerly/navbar'
 import { ContributeModal } from '@/components/peerly/contribute-modal'
 import { ContributionThread, type Contribution } from '@/components/peerly/contribution-thread'
+import { RichContent } from '@/components/peerly/rich-content'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -44,13 +45,32 @@ function parseContributions(node: WeaveNode): Contribution[] {
   return rawBlocks.map((block, idx) => {
     const authorMatch = block.match(/^\*\*(.+?)\*\*:\s*/)
     const author = authorMatch ? authorMatch[1] : (node.contributed_by ?? 'community')
-    const text = authorMatch ? block.slice(authorMatch[0].length) : block
-    const refMatch = text.match(/\nReference: (.+)$/)
+    let text = authorMatch ? block.slice(authorMatch[0].length) : block
+
+    // Parse out all Reference lines
+    const refMatches = [...text.matchAll(/\nReference: (.+)/g)]
+    const links = refMatches.map(m => m[1].trim())
+    const link = links[0]
+    if (refMatches.length) text = text.replace(/(\nReference: .+)+/, '')
+
+    // Parse out Attachments JSON
+    const attMatch = text.match(/\nAttachments: (\[.+?\])/)
+    let attachments: string[] | undefined
+    try { if (attMatch) attachments = JSON.parse(attMatch[1]) } catch {}
+    if (attMatch) text = text.slice(0, attMatch.index)
+
+    // For scaffold fills, also check node-level attachments (idx === 0)
+    if (idx === 0 && !attachments && (node as any).attachments?.length) {
+      attachments = (node as any).attachments
+    }
+
     return {
       id: `${node.id}-contrib-${idx}`,
       author,
-      text: refMatch ? text.slice(0, refMatch.index) : text,
-      link: refMatch ? refMatch[1] : undefined,
+      text: text.trim(),
+      link,
+      links: links.length ? links : undefined,
+      attachments,
       order: idx,
       upvotes: upvotesMap[idx] ?? 0,
     }
@@ -60,7 +80,7 @@ function parseContributions(node: WeaveNode): Contribution[] {
 function ExplanationCard({
   contrib, isTop, weaveId, nodeId, alreadyVoted, onUpvote,
 }: { contrib: Contribution; isTop: boolean; weaveId: string; nodeId: string; alreadyVoted: boolean; onUpvote: (order: number, newCount: number) => void }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(true)
   const [voted, setVoted] = useState(alreadyVoted)
 
   // Sync when userId resolves asynchronously (Clerk auth)
@@ -115,14 +135,14 @@ function ExplanationCard({
         </button>
       </div>
 
-      {/* Preview always visible */}
+      {/* Content */}
       <div className="px-4 pb-3">
-        <p className="text-sm leading-6 text-muted-foreground">{expanded ? contrib.text : preview}</p>
-        {contrib.link && expanded && (
-          <a href={contrib.link} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-primary mt-2 hover:underline">
-            🔗 {contrib.link}
-          </a>
+        <RichContent
+          text={contrib.text + ((contrib.links ?? (contrib.link ? [contrib.link] : [])).map(l => `\n\n${l}`).join(''))}
+          attachments={contrib.attachments}
+        />
+        {!expanded && contrib.text.length > 160 && (
+          <button onClick={() => setExpanded(true)} className="text-xs text-primary mt-1 hover:underline">Read more</button>
         )}
       </div>
     </Card>
@@ -332,7 +352,11 @@ export default function NodeDetailPage() {
             <Badge variant="outline" className="text-xs">{STAGE_LABELS[node.depth] ?? 'Deep Dive'}</Badge>
           </div>
           <h1 className="text-3xl font-bold text-foreground mb-3 leading-tight">{node.title}</h1>
-          <p className="text-muted-foreground leading-relaxed">{[...parseContributions(node)].map(c => ({ ...c, upvotes: upvoteCounts[c.order] ?? c.upvotes ?? 0 })).sort((a,b)=>b.upvotes-a.upvotes)[0]?.text ?? ''}</p>
+          {(() => {
+            const top = [...parseContributions(node)].map(c => ({ ...c, upvotes: upvoteCounts[c.order] ?? c.upvotes ?? 0 })).sort((a,b)=>b.upvotes-a.upvotes)[0]
+            if (!top) return null
+            return <RichContent text={top.text + ((top.links ?? (top.link ? [top.link] : [])).map(l => `\n\n${l}`).join(''))} attachments={top.attachments} />
+          })()}
         </div>
 
         {/* Scaffold contribute CTA — prominent banner */}
@@ -421,7 +445,7 @@ export default function NodeDetailPage() {
               </span>
             </div>
             <Card className="p-6 bg-card border-border">
-              <p className="text-sm leading-7 text-muted-foreground">{node.description}</p>
+              <RichContent text={node.description} />
             </Card>
           </div>
         ) : (
@@ -462,34 +486,7 @@ export default function NodeDetailPage() {
                   </Button>
                 </div>
               ) : explainer ? (
-                <div className="space-y-1">
-                  {explainer.split('\n\n').filter(Boolean).map((para, i) => {
-                    if (para.startsWith('## ')) {
-                      return (
-                        <h3 key={i} className="text-base font-bold text-foreground mt-6 mb-2 first:mt-0">
-                          {para.replace(/^##\s*/, '')}
-                        </h3>
-                      )
-                    }
-                    if (para.match(/^[-*] /m)) {
-                      return (
-                        <ul key={i} className="space-y-1.5 my-3 pl-1">
-                          {para.split('\n').filter(l => l.trim()).map((item, j) => (
-                            <li key={j} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                              <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2 shrink-0" />
-                              <span>{item.replace(/^[-*]\s*/, '')}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )
-                    }
-                    return (
-                      <p key={i} className="text-sm leading-7 text-muted-foreground">
-                        {para}
-                      </p>
-                    )
-                  })}
-                </div>
+                <RichContent text={explainer} />
               ) : (
                 <p className="text-muted-foreground text-sm text-center py-4">No explainer yet.</p>
               )}

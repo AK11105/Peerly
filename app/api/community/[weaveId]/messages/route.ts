@@ -42,14 +42,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
 
   const { weaveId } = await params
   const body = await req.json()
-  const { channel, text, is_question = false } = body
+  const { channel, text, is_question = false, attachments } = body
 
   // Sync user into Supabase with display_name from Clerk
   await syncUser(userId)
 
   const { data, error } = await supabase
     .from('community_messages')
-    .insert({ weave_id: weaveId, channel, username: userId, text, is_question })
+    .insert({ weave_id: weaveId, channel, username: userId, text, is_question, attachments: attachments ?? null })
     .select()
     .single()
 

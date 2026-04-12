@@ -10,6 +10,8 @@ export interface Contribution {
   author: string
   text: string
   link?: string
+  attachments?: string[]
+  links?: string[]
   order: number
   upvotes?: number
 }
