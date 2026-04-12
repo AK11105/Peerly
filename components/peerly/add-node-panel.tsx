@@ -17,6 +17,7 @@ interface AddNodePanelProps {
 }
 
 export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
+  const [submissionPath, setSubmissionPath] = useState<'admin' | 'community_vote'>('admin')
   const [isExpanded, setIsExpanded] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -27,7 +28,11 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
   const currentUser = useCurrentUser()
 
   const reset = () => {
-    setTitle(''); setDescription(''); setLinks(['']); setAttachments([])
+    setTitle('')
+    setDescription('')
+    setLinks([''])
+    setAttachments([])
+    setSubmissionPath('admin')
   }
 
   const updateLink = (i: number, val: string) => setLinks(prev => prev.map((l, idx) => idx === i ? val : l))
@@ -39,10 +44,16 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
       toast.error('Please fill in both fields.')
       return
     }
+    
     // Validate links
     const validLinks = links.map(l => l.trim()).filter(Boolean)
     for (const l of validLinks) {
-      try { new URL(l) } catch { toast.error(`Invalid URL: ${l}`); return }
+      try {
+        new URL(l)
+      } catch {
+        toast.error(`Invalid URL: ${l}`)
+        return
+      }
     }
 
     // Build description with links + attachments embedded
@@ -57,13 +68,20 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
         description: fullDescription,
         contributed_by: currentUser?.displayName ?? 'anonymous',
         user_id: currentUser?.id,
+        submission_path: submissionPath,
       })
+
       reset()
       setIsExpanded(false)
       onRefresh()
-      if (data?.status === 'pending') {
-        toast.info('Submitted for review — admin will approve shortly.', {
+
+      if (data?.status === 'PENDING_ADMIN') {
+        toast.info('Submitted for admin review — will be approved shortly.', {
           style: { borderLeft: '3px solid #6366F1' },
+        })
+      } else if (data?.status === 'PENDING_VOTE') {
+        toast.info('Submitted to community voting pool!', {
+          style: { borderLeft: '3px solid #F59E0B' },
         })
       } else {
         await earn(25)
@@ -71,7 +89,10 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
       }
     } catch (err: any) {
       if (err instanceof ProRequiredError) {
-        toast.info('Pro plan required.', { description: 'Paid plans are coming soon. Stay tuned!', action: { label: 'See Plans', onClick: () => window.location.href = '/pricing' } })
+        toast.info('Pro plan required.', {
+          description: 'Paid plans are coming soon. Stay tuned!',
+          action: { label: 'See Plans', onClick: () => window.location.href = '/pricing' },
+        })
       } else {
         toast.error(err?.message ?? 'Something went wrong. Please try again.', {
           style: { borderLeft: '3px solid #EF4444' },
@@ -125,6 +146,7 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
                 onChange={(e) => setTitle(e.target.value)}
                 className="bg-background border-border text-foreground placeholder:text-muted-foreground"
               />
+              
               <Textarea
                 placeholder="Description"
                 value={description}
@@ -145,7 +167,10 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
                       className="bg-background border-border text-foreground placeholder:text-muted-foreground text-xs h-8"
                     />
                     {links.length > 1 && (
-                      <button onClick={() => removeLink(i)} className="text-muted-foreground hover:text-destructive shrink-0">
+                      <button
+                        onClick={() => removeLink(i)}
+                        className="text-muted-foreground hover:text-destructive shrink-0"
+                      >
                         <X className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -166,6 +191,29 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
                 onRemove={url => setAttachments(prev => prev.filter(u => u !== url))}
               />
 
+              {/* Submission path selection */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Submission Path</label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={submissionPath === 'admin' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSubmissionPath('admin')}
+                    className="flex-1 text-xs"
+                  >
+                    Admin Review
+                  </Button>
+                  <Button
+                    variant={submissionPath === 'community_vote' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSubmissionPath('community_vote')}
+                    className="flex-1 text-xs"
+                  >
+                    Community Vote
+                  </Button>
+                </div>
+              </div>
+
               <Button
                 onClick={handleSubmit}
                 disabled={isLoading}
@@ -173,8 +221,9 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
               >
                 {isLoading ? 'Checking…' : 'ADD TO WEAVE'}
               </Button>
+              
               <p className="text-center text-xs text-muted-foreground">
-                AI reviews relevance · admin approves before going live
+                AI reviews relevance · {submissionPath === 'admin' ? 'admin approves before going live' : 'community votes to approve'}
               </p>
             </div>
           </div>

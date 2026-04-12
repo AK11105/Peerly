@@ -76,6 +76,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
 
   const { weaveId } = await params
   const body = await req.json()
+  const submissionPath = body.submission_path || 'admin'
   const title: string = body.title?.trim()
   const description: string = body.description?.trim()
 
@@ -86,9 +87,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
   const { data: weave, error } = await supabase.from('weaves').select('topic').eq('id', weaveId).single()
   if (error || !weave) return NextResponse.json({ error: 'Weave not found' }, { status: 404 })
 
-  // Duplicate check — block if similar title already exists (pending OR approved)
+  // ISSUE #1 FIX: Updated status values to match new schema
+  // OLD: .in('status', ['pending', 'approved'])
+  // NEW: .in('status', ['PENDING_ADMIN', 'PENDING_VOTE', 'approved'])
   const { data: existingAll } = await supabase
-    .from('nodes').select('title').eq('weave_id', weaveId).in('status', ['pending', 'approved'])
+    .from('nodes')
+    .select('title')
+    .eq('weave_id', weaveId)
+    .in('status', ['PENDING_ADMIN', 'PENDING_VOTE', 'approved'])
+  
   if (existingAll) {
     const t = title.toLowerCase()
     const duplicate = existingAll.find((n: any) => {
@@ -186,12 +193,15 @@ Reply ONLY JSON: {"placement_ok":true|false,"corrected_depth":<int>|null,"correc
     }
   }
 
-  // 3. Insert as pending — HITL
+  // 3. Insert with correct status
   const nodeId = randomUUID()
 
   // Resolve contributed_by from DB display_name to avoid storing raw Clerk IDs
   const { data: userRow } = await supabase.from('users').select('display_name').eq('username', userId).maybeSingle()
   const contributedBy = userRow?.display_name ?? body.contributed_by ?? 'anonymous'
+
+  // ISSUE #2 FIX: Determine status correctly
+  const nodeStatus = submissionPath === 'community_vote' ? 'PENDING_VOTE' : 'PENDING_ADMIN'
 
   const newNode = {
     id: nodeId,
@@ -203,23 +213,26 @@ Reply ONLY JSON: {"placement_ok":true|false,"corrected_depth":<int>|null,"correc
     is_scaffold: false,
     contributed_by: contributedBy,
     submitted_by: userId,
-    status: 'pending',
+    status: nodeStatus,
   }
 
   const { error: insertErr } = await supabase.from('nodes').insert(newNode)
   if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
 
-  // 4. Notify weave admins
-  const { data: admins } = await supabase.from('weave_admins').select('username').eq('weave_id', weaveId)
-  if (admins?.length) {
-    await supabase.from('notifications').insert(
-      admins.map((a: any) => ({
-        weave_id: weaveId,
-        type: 'pending_node',
-        node_id: nodeId,
-        username: a.username,
-      }))
-    )
+  // ISSUE #3 FIX: Only notify admins for PENDING_ADMIN, not for community voting
+  // Don't spam admins with community voting submissions
+  if (nodeStatus === 'PENDING_ADMIN') {
+    const { data: admins } = await supabase.from('weave_admins').select('username').eq('weave_id', weaveId)
+    if (admins?.length) {
+      await supabase.from('notifications').insert(
+        admins.map((a: any) => ({
+          weave_id: weaveId,
+          type: 'pending_node',
+          node_id: nodeId,
+          username: a.username,
+        }))
+      )
+    }
   }
 
   await supabase.rpc('ensure_user', { p_username: userId })
@@ -227,5 +240,6 @@ Reply ONLY JSON: {"placement_ok":true|false,"corrected_depth":<int>|null,"correc
   // 5. Fire-and-forget gap detection
   runGapDetection(weaveId, weave.topic, title, description)
 
-  return NextResponse.json({ status: 'pending', node: newNode }, { status: 202 })
+  // Return correct status in response
+  return NextResponse.json({ status: nodeStatus, node: newNode }, { status: 202 })
 }

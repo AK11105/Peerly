@@ -14,13 +14,29 @@ export interface WeaveNode {
   difficulty: number
   is_scaffold: boolean
   contributed_by: string | null
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'PENDING_ADMIN' | 'PENDING_VOTE' | 'approved' | 'rejected'
   submitted_by?: string | null
   explainer?: string | null
   sources?: NodeSource[] | null
   node_source?: 'ai' | 'import' | 'community'
   flag?: 'spam' | 'abuse' | null
   created_at?: string
+}
+
+export interface NodeVote {
+  id: string
+  node_id: string
+  username: string
+  vote: 'accept' | 'reject'
+  created_at: string
+}
+
+export interface NodeVoteStats {
+  node_id: string
+  accept_count: number
+  reject_count: number
+  total_votes: number
+  status: 'PENDING_ADMIN' | 'PENDING_VOTE' | 'approved' | 'rejected'
 }
 
 export interface Weave {
@@ -39,10 +55,11 @@ export interface AddNodePayload {
   contributed_by: string
   user_id?: string
   attachments?: string[]
+  submission_path?: 'admin' | 'community_vote'
 }
 
 export interface AddNodeResponse {
-  status: 'pending' | 'approved'
+  status: 'PENDING_ADMIN' | 'PENDING_VOTE' | 'approved' | 'rejected'
   node?: WeaveNode
 }
 

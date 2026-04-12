@@ -107,6 +107,7 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
         <h3 className={`font-semibold leading-snug text-foreground group-hover:text-white transition-colors ${compact ? 'text-sm' : 'text-base'}`}>
           {node.title}
         </h3>
+
         <div className="flex items-center gap-1.5 shrink-0">
           {node.flag && (
             <span
@@ -117,12 +118,45 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
               !
             </span>
           )}
-          <span
-            className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
-            style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.25)' }}
-          >
-            ✓ Community
-          </span>
+
+          {node.status === 'PENDING_ADMIN' && (
+            <span
+              className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+              style={{ background: 'rgba(99,102,241,0.15)', color: '#6366F1', border: '1px solid rgba(99,102,241,0.25)' }}
+              title="Awaiting admin review"
+            >
+              ⏳ Pending
+            </span>
+          )}
+
+          {node.status === 'PENDING_VOTE' && (
+            <span
+              className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+              style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.25)' }}
+              title="Awaiting community votes"
+            >
+              🗳️ Voting
+            </span>
+          )}
+
+          {node.status === 'approved' && (
+            <span
+              className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+              style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.25)' }}
+            >
+              ✓ Community
+            </span>
+          )}
+
+          {node.status === 'rejected' && (
+            <span
+              className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+              style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.25)' }}
+              title="Rejected by community vote"
+            >
+              ✗ Rejected
+            </span>
+          )}
         </div>
       </div>
 

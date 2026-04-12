@@ -14,6 +14,39 @@ create table if not exists weaves (
   created_at  timestamptz default now()
 );
 
+-- ── NODES TABLE (CRITICAL - WAS MISSING) ───────────────────
+create table if not exists nodes (
+  id             uuid primary key default gen_random_uuid(),
+  weave_id       text not null references weaves(id) on delete cascade,
+  title          text not null,
+  description    text not null default '',
+  depth          int not null default 0,
+  difficulty     int not null default 1 check (difficulty between 1 and 5),
+  is_scaffold    boolean not null default false,
+  contributed_by text,
+  status         text not null default 'PENDING_ADMIN' 
+                 check (status in ('PENDING_ADMIN', 'PENDING_VOTE', 'approved', 'rejected')),
+  submitted_by   text,
+  created_at     timestamptz not null default now()
+);
+
+create index if not exists nodes_weave_id_idx on nodes(weave_id);
+create index if not exists nodes_status_idx on nodes(status);
+
+-- ── NOTIFICATIONS TABLE ────────────────────────────────────
+create table if not exists notifications (
+  id         uuid primary key default gen_random_uuid(),
+  weave_id   uuid references weaves(id) on delete cascade,
+  type       text not null,
+  node_id    uuid references nodes(id) on delete cascade,
+  username   text,
+  read       boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists notifications_weave_id_idx on notifications(weave_id);
+create index if not exists notifications_read_idx on notifications(read);
+
 -- idempotent column additions for existing deployments
 alter table weaves add column if not exists source text not null default 'ai';
 alter table weaves add column if not exists source_url text;
@@ -34,9 +67,9 @@ create table if not exists weave_admins (
 create table if not exists contributions (
   id            uuid primary key default gen_random_uuid(),
   weave_id      text references weaves(id) on delete cascade,
-  node_id       text not null,
+  node_id       text,
   username      text references users(username) on delete cascade,
-  type          text not null check (type in ('scaffold_fill', 'add_node', 'perspective')),
+  type          text not null check (type in ('scaffold_fill', 'add_node', 'perspective', 'import')),
   lumens_earned int not null default 0,
   created_at    timestamptz default now()
 );
@@ -62,6 +95,7 @@ create table if not exists community_messages (
   text        text not null,
   is_question boolean not null default false,
   upvotes     int not null default 0,
+  attachments text[] default '{}',
   created_at  timestamptz default now()
 );
 
@@ -71,6 +105,7 @@ create table if not exists community_replies (
   username   text references users(username) on delete cascade,
   text       text not null,
   upvotes    int not null default 0,
+  attachments text[] default '{}',
   created_at timestamptz default now()
 );
 
@@ -81,10 +116,17 @@ create table if not exists community_upvotes (
   primary key (username, target_id)
 );
 
--- ── Column migrations (idempotent) ────────────────────────
--- Add columns that may be missing on older deployments.
--- ADD COLUMN IF NOT EXISTS is a no-op when the column already exists.
+-- ── Node voting table ──────────────────────────────────────
+create table if not exists node_votes (
+  id uuid primary key default gen_random_uuid(),
+  node_id uuid references nodes(id) on delete cascade,
+  username text references users(username) on delete cascade,
+  vote text check (vote in ('accept', 'reject')),
+  created_at timestamptz default now(),
+  unique (node_id, username)
+);
 
+-- ── Column migrations (idempotent) ────────────────────────
 alter table users add column if not exists display_name text;
 alter table users add column if not exists plan text not null default 'free';
 alter table users add column if not exists stripe_customer_id text;
@@ -92,7 +134,6 @@ alter table users add column if not exists stripe_subscription_id text;
 alter table users add column if not exists has_paid boolean not null default false;
 alter table users add column if not exists has_seen_tour boolean not null default false;
 
--- Ensure plan has the correct default and NOT NULL even if column pre-existed as nullable.
 alter table users alter column plan set default 'free';
 update users set plan = 'free' where plan is null;
 alter table users alter column plan set not null;
@@ -101,7 +142,7 @@ alter table users alter column plan set not null;
 do $$
 declare t text;
 begin
-  foreach t in array array['weaves','lumens','contributions','community_messages','community_replies','community_upvotes']
+  foreach t in array array['weaves','lumens','contributions','community_messages','community_replies','community_upvotes','node_votes','nodes','notifications']
   loop
     if not exists (
       select 1 from pg_publication_tables
@@ -114,7 +155,6 @@ end;
 $$;
 
 -- ── Row Level Security ────────────────────────────────────
--- enable is idempotent (no-op if already enabled)
 alter table weaves             enable row level security;
 alter table users              enable row level security;
 alter table weave_admins       enable row level security;
@@ -124,8 +164,11 @@ alter table user_weaves        enable row level security;
 alter table community_messages enable row level security;
 alter table community_replies  enable row level security;
 alter table community_upvotes  enable row level security;
+alter table node_votes         enable row level security;
+alter table nodes              enable row level security;
+alter table notifications      enable row level security;
 
--- drop + recreate is the only safe idempotent pattern for policies
+-- RLS Policies (drop and recreate pattern)
 drop policy if exists "public read"   on weaves;
 drop policy if exists "public insert" on weaves;
 drop policy if exists "public update" on weaves;
@@ -134,6 +177,13 @@ create policy "public read"   on weaves for select using (true);
 create policy "public insert" on weaves for insert with check (true);
 create policy "public update" on weaves for update using (true);
 create policy "public delete" on weaves for delete using (true);
+
+drop policy if exists "nodes_public_read" on nodes;
+drop policy if exists "nodes_insert"      on nodes;
+drop policy if exists "nodes_update"      on nodes;
+create policy "nodes_public_read" on nodes for select using (true);
+create policy "nodes_insert"      on nodes for insert with check (true);
+create policy "nodes_update"      on nodes for update using (true);
 
 drop policy if exists "public read"   on users;
 drop policy if exists "public insert" on users;
@@ -191,10 +241,17 @@ create policy "public read"   on community_upvotes for select using (true);
 create policy "public insert" on community_upvotes for insert with check (true);
 create policy "public delete" on community_upvotes for delete using (true);
 
+drop policy if exists "public read"   on node_votes;
+drop policy if exists "public insert" on node_votes;
+drop policy if exists "public delete" on node_votes;
+create policy "public read"   on node_votes for select using (true);
+create policy "public insert" on node_votes for insert with check (true);
+create policy "public delete" on node_votes for delete using (true);
+
+drop policy if exists "notifications_public_read" on notifications;
+create policy "notifications_public_read" on notifications for select using (true);
+
 -- ── Functions ─────────────────────────────────────────────
--- All use SECURITY DEFINER so they run as the owner (postgres)
--- regardless of the calling role, bypassing RLS on writes.
--- DROP the old single-arg overload that caused "not unique" errors.
 
 drop function if exists ensure_user(text);
 
@@ -205,7 +262,6 @@ begin
     values (p_username, p_display_name, false)
     on conflict (username) do update
       set display_name = coalesce(excluded.display_name, users.display_name);
-  -- plan is managed via /api/user/plan — never touched here
   insert into lumens (username, balance)
     values (p_username, 0)
     on conflict do nothing;
@@ -241,8 +297,6 @@ begin
 end;
 $$;
 
--- Deprecated — no longer called by app routes (inline table ops used instead).
--- Kept for backwards compatibility only.
 create or replace function toggle_message_upvote(p_username text, p_message_id uuid)
 returns int language plpgsql security definer as $$
 declare v_upvotes int;
@@ -291,9 +345,6 @@ begin
 end;
 $$;
 
--- ── Node explanation upvote (atomic, dedup-safe) ─────────
--- Returns the new upvote count for the block, NULL if not found.
--- Toggles: adds vote if not present, removes if already voted.
 create or replace function upvote_node_explanation(
   p_weave_id   text,
   p_node_id    text,
@@ -326,12 +377,10 @@ begin
   v_new_count := coalesce((v_upvotes->>p_block_index::text)::int, 0);
 
   if v_already then
-    -- Remove vote
     v_voters    := (select jsonb_agg(val) from jsonb_array_elements(v_voters) val where val <> to_jsonb(p_voter_key));
     v_voters    := coalesce(v_voters, '[]'::jsonb);
     v_new_count := greatest(0, v_new_count - 1);
   else
-    -- Add vote
     v_voters    := v_voters || to_jsonb(p_voter_key);
     v_new_count := v_new_count + 1;
   end if;
@@ -348,7 +397,6 @@ end;
 $$;
 
 -- ── Leaderboard view ──────────────────────────────────────
--- Must drop before recreating — CREATE OR REPLACE fails if column list changes.
 drop view if exists leaderboard_view;
 create view leaderboard_view as
 select
@@ -372,8 +420,12 @@ left join (
 ) c on c.username = u.username
 order by rep desc, lumens desc, username asc;
 
--- ── Node upvotes (replaces JSONB contribution_upvotes/voters) ────────────────
+-- ── Node upvotes ──────────────────────────────────────────
 alter table nodes add column if not exists upvotes int not null default 0;
+alter table nodes add column if not exists sources jsonb;
+alter table nodes add column if not exists node_source text not null default 'ai';
+alter table nodes add column if not exists flag text;
+alter table nodes add column if not exists explainer text;
 
 create table if not exists node_upvotes (
   node_id  uuid references nodes(id) on delete cascade,
@@ -407,19 +459,7 @@ begin
 end;
 $$;
 
--- ── Node sources (Reddit posts that contributed to each imported node) ────────
-alter table nodes add column if not exists sources jsonb;
-alter table nodes add column if not exists node_source text not null default 'ai';
-
--- Allow node_id to be null in contributions (import type has no single node)
-alter table contributions alter column node_id drop not null;
-
--- Allow 'import' as a valid contribution type
-alter table contributions drop constraint if exists contributions_type_check;
-alter table contributions add constraint contributions_type_check
-  check (type in ('scaffold_fill', 'add_node', 'perspective', 'import'));
-
--- ── Atomic community upvote counters (fixes race condition in upvote routes) ──
+-- ── Atomic upvote counters ────────────────────────────────
 create or replace function increment_message_upvotes(p_message_id uuid)
 returns void language plpgsql security definer as $$
 begin
