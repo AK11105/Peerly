@@ -19,6 +19,7 @@ export interface WeaveNode {
   explainer?: string | null
   sources?: NodeSource[] | null
   node_source?: 'ai' | 'import' | 'community'
+  flag?: 'spam' | 'abuse' | null
   created_at?: string
 }
 

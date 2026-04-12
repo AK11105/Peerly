@@ -235,10 +235,17 @@ export default function AdminPanel() {
                 ) : (
                   <div className="space-y-4 max-w-3xl">
                     {pendingNodes.map((node) => (
-                      <Card key={node.id} className="p-5 bg-card border-border">
+                      <Card key={node.id} className="p-5 bg-card border-border" style={node.flag ? { borderLeft: '3px solid #EF4444' } : {}}>
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-foreground truncate">{node.title}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-foreground truncate">{node.title}</p>
+                              {node.flag && (
+                                <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                                  ! {node.flag}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{node.description}</p>
                             <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
                               <span>depth {node.depth}</span>

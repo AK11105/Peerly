@@ -61,11 +61,11 @@ export function ContributeModal({ node, weaveId, open, onOpenChange, onRefresh }
       setTitle(''); setDescription(''); setLinks(['']); setAttachments([])
       onOpenChange(false); onRefresh()
       toast.success('+50 LM earned! Contribution saved.', { style: { borderLeft: '3px solid #22C55E' } })
-    } catch (err) {
+    } catch (err: any) {
       if (err instanceof ProRequiredError) {
         toast.info('Pro plan required.', { description: 'Paid plans are coming soon. Stay tuned!', action: { label: 'See Plans', onClick: () => window.location.href = '/pricing' } })
       } else {
-        toast.error('Something went wrong. Please try again.', { style: { borderLeft: '3px solid #EF4444' } })
+        toast.error(err?.message ?? 'Something went wrong. Please try again.', { style: { borderLeft: '3px solid #EF4444' } })
       }
     } finally {
       setIsLoading(false)

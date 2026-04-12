@@ -100,22 +100,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
     }
   }
 
-  // 1. Relevance check
-  const relevancePrompt = `Weave topic: "${weave.topic}"
+  // Content check: relevance + spam + abuse in one pass
+  try {
+    const raw = await callAI(`Weave topic: "${weave.topic}"
 Proposed node — title: "${title}", description: "${description}"
 
-Is this node relevant and appropriate for this learning map?
-Reply ONLY JSON: {"relevant":true|false,"reason":"one sentence"}`
+Reject if ANY of these are true:
+1. The subject matter is unrelated to the weave topic
+2. The content is spam (repetitive, promotional, gibberish, filler)
+3. The content is abusive (hate speech, harassment, explicit, personal attacks)
 
-  try {
-    const raw = await callAI(relevancePrompt)
+Reply ONLY JSON: {"accept":true|false,"reason":"one sentence"}`)
     const check = parseJSON(raw)
-    if (!check.relevant) {
-      console.log('[relevance] rejected:', title, '—', check.reason)
+    if (!check.accept) {
+      console.log('[content-check] rejected:', title, '—', check.reason)
       return NextResponse.json({ error: `Node rejected: ${check.reason}` }, { status: 422 })
     }
   } catch (e) {
-    console.warn('[relevance] check failed, allowing through:', e)
+    console.warn('[content-check] failed, allowing through:', e)
   }
 
   // 2. Formatter agent — assign correct depth + difficulty, then verify order

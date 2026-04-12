@@ -72,21 +72,43 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
   const description = body.description?.trim()
   if (!description) return NextResponse.json({ error: 'description is required' }, { status: 400 })
 
+  // Content check: relevance + spam + abuse in one pass
+  try {
+    const raw = await callAI(`Weave topic: "${weave.topic}"
+Scaffold node: "${target.title}"
+Contribution — title: "${title}", description: "${description}"
+
+Reject if ANY of these are true:
+1. The subject matter is unrelated to the scaffold node or weave topic
+2. The content is spam (repetitive, promotional, gibberish, filler)
+3. The content is abusive (hate speech, harassment, explicit, personal attacks)
+
+Reply ONLY JSON: {"accept":true|false,"reason":"one sentence"}`)
+    const check = parseJSON(raw)
+    if (!check.accept) {
+      console.log('[content-check/contribute] rejected:', title, '—', check.reason)
+      return NextResponse.json({ error: `Contribution rejected: ${check.reason}` }, { status: 422 })
+    }
+  } catch (e) {
+    console.warn('[content-check/contribute] failed, allowing through:', e)
+  }
+
   // Resolve contributed_by from DB display_name — never trust client-sent value
   const { data: userRow } = await supabase.from('users').select('display_name').eq('username', userId).maybeSingle()
   const contributedBy = userRow?.display_name ?? body.contributed_by ?? 'anonymous'
 
   const { error: updateErr } = await supabase
     .from('nodes')
-    .update({ title, description, is_scaffold: false, contributed_by: contributedBy, status: 'approved', attachments: body.attachments ?? null })
+    .update({
+      title, description, is_scaffold: false, contributed_by: contributedBy,
+      status: 'approved',
+      attachments: body.attachments ?? null,
+    })
     .eq('id', target.id)
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
 
   await supabase.rpc('ensure_user', { p_username: userId })
   await supabase.from('contributions').insert({ weave_id: weaveId, node_id: target.id, username: userId, type: 'scaffold_fill', lumens_earned: 50 })
-//   const { data: earnData, error: earnErr } = await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 50 })
-//   if (earnErr) console.error('[earn_lumens contribute FAILED]', earnErr.message, { userId })
-//   else console.log('[earn_lumens contribute OK]', { userId, newBalance: earnData })
 
   runGapDetection(weaveId, weave.topic, title, description)
 

@@ -107,12 +107,23 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
         <h3 className={`font-semibold leading-snug text-foreground group-hover:text-white transition-colors ${compact ? 'text-sm' : 'text-base'}`}>
           {node.title}
         </h3>
-        <span
-          className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-          style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.25)' }}
-        >
-          ✓ Community
-        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {node.flag && (
+            <span
+              title={node.flag === 'abuse' ? 'Flagged: potential abuse' : 'Flagged: potential spam'}
+              className="rounded-full px-2 py-0.5 text-xs font-bold"
+              style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+            >
+              !
+            </span>
+          )}
+          <span
+            className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+            style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.25)' }}
+          >
+            ✓ Community
+          </span>
+        </div>
       </div>
 
       {!compact && (
