@@ -99,7 +99,7 @@ export default function ExplorePage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-6 py-12 lg:px-8">
+      <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 md:px-6 md:pb-8 lg:px-8">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0">
 

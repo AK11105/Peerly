@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Star, LogOut, User, HelpCircle, Menu , X } from 'lucide-react'
+import { Star, LogOut, User, HelpCircle, Menu, X, Trophy, Layers, Library, Sparkles, Megaphone } from 'lucide-react'
 import { SignInButton, SignUpButton, useClerk, useUser } from '@clerk/nextjs'
 import { useLumens } from '@/lib/lumens-context'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { useOnboarding } from '@/hooks/use-onboarding'
 import { RedeemDialog } from './redeem-dialog'
 import { OnboardingTour } from './onboarding-tour'
+import { ThemeSwitcher } from './theme-switcher'
 import Image from "next/image";
 
 
@@ -41,11 +42,11 @@ const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const isAuthenticated = !!user
 
   const navLinks = [
-    { href: '/explore', label: 'Explore' },
-    { href: '/my-weaves', label: 'My Weaves' },
-    { href: '/leaderboard', label: 'Leaderboard' },
-    { href: '/pricing', label: 'Pricing' },
-    { href: '/admin', label: 'Admin' },
+    { href: '/explore', label: 'Explore', icon: Library },
+    { href: '/my-weaves', label: 'My Weaves', icon: Layers },
+    { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+    { href: '/pricing', label: 'Pricing', icon: Sparkles },
+    { href: '/admin', label: 'Admin', icon: Megaphone },
   ]
 
   useEffect(() => {
@@ -107,16 +108,20 @@ const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
           </div>
 
           {/* Center Nav Links - desktop only */}
-<nav className="hidden md:flex items-center gap-6">
-  {navLinks.map(({ href, label }) => (
-    <Link key={href} href={href}
-      className={`text-sm font-medium transition-colors ${
-        pathname === href || pathname.startsWith(href + '/')
-          ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-      }`}
-    >{label}</Link>
-  ))}
-</nav>
+          <nav className="hidden md:flex items-center gap-1">
+            {navLinks.map(({ href, label, icon: Icon }) => (
+              <Link key={href} href={href}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  pathname === href || pathname.startsWith(href + '/')
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            ))}
+          </nav>
 
 
 
@@ -133,11 +138,16 @@ const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
             {/* Tour/Help Button */}
             <button onClick={() => setTourOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/50 hover:bg-card/80 transition-colors"
+              className="hidden sm:flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/50 hover:bg-card/80 transition-colors"
             >
               <HelpCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Tour</span>
+              <span>Tour</span>
             </button>
+
+            {/* Theme Switcher - desktop */}
+            <div className="hidden md:block" suppressHydrationWarning>
+              <ThemeSwitcher variant="icon" />
+            </div>
 
             {/* LM Balance */}
             <button onClick={() => setRedeemOpen(true)}
@@ -219,25 +229,34 @@ const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
       </header>
 
       {mobileMenuOpen && (
-  <div className="md:hidden fixed inset-0 top-14 z-40 bg-background border-t border-border overflow-y-auto">
-    <nav className="flex flex-col p-4 gap-1">
-      {navLinks.map(({ href, label }) => (
-        <Link
-          key={href}
-          href={href}
-          onClick={() => setMobileMenuOpen(false)}
-          className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-            pathname === href || pathname.startsWith(href + '/')
-              ? 'bg-primary/10 text-primary'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-          }`}
-        >
-          {label}
-        </Link>
-      ))}
-    </nav>
-  </div>
-)}
+        <div className="md:hidden fixed inset-0 top-14 z-40 bg-background border-t border-border overflow-y-auto">
+          <nav className="flex flex-col p-4 gap-1 pb-24">
+            {navLinks.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3.5 rounded-lg text-sm font-medium transition-colors ${
+                  pathname === href || pathname.startsWith(href + '/')
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+                {label}
+              </Link>
+            ))}
+
+            {/* Mobile theme switcher */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <div className="flex items-center justify-between px-4 py-2">
+                <span className="text-sm font-medium text-foreground">Theme</span>
+                <ThemeSwitcher variant="button" />
+              </div>
+            </div>
+          </nav>
+        </div>
+      )}
 
       <RedeemDialog open={redeemOpen} onOpenChange={setRedeemOpen} />
       <OnboardingTour open={tourOpen} onOpenChange={setTourOpen} onComplete={markTourAsSeen} />

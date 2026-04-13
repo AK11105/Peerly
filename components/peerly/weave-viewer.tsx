@@ -77,7 +77,7 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
       <CommunityProgressBar nodes={weave.nodes} />
 
       {/* Topic header */}
-<div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-balance text-xl font-semibold text-foreground">{weave.topic}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
@@ -92,28 +92,28 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
         </div>
 
         {/* View toggle pill */}
-        <div className="flex items-center rounded-full border border-border bg-card p-0.5">
+        <div className="flex items-center self-start sm:self-auto rounded-full border border-border bg-card p-0.5">
           <button
             onClick={() => setView('list')}
-            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all tap-target ${
               view === 'list'
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <List className="h-3.5 w-3.5" />
-            List
+            <span className="hidden sm:inline">List</span>
           </button>
           <button
             onClick={() => setView('map')}
-            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all tap-target ${
               view === 'map'
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Network className="h-3.5 w-3.5" />
-            Mind Map
+            <span className="hidden sm:inline">Mind Map</span>
           </button>
         </div>
       </div>
