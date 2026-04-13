@@ -106,21 +106,33 @@ export default function FieldPage() {
             )}
           </div>
           <Link href={`/create?field=${encodeURIComponent(fieldLabel)}`}>            
-               <Button className="bg-primary hover:bg-primary/90">
+               <Button className="
+               bg-primary
+               hover:bg-primary/90
+               hover:shadow-lg 
+               hover:scale-[1.03]
+               hover:font-semi-bold
+               active:scale-[0.98]
+               border-border
+               transition-all duration-50
+               
+               ">
                          + New Weave
                </Button>
           </Link>
         </div>
 
         {/* Search */}
-        <div className="relative mb-8">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative mb-8 hover:shadow-lg 
+                        hover:scale-[1.03]
+                        active:scale-[0.98] transition-all duration-200">
+          <Search className="absolute left-3 top-1/2  -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             autoFocus
             placeholder={`Search in ${fieldLabel}...`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-11 bg-card border-border"
+            className="pl-10 h-11 bg-card border-border "
           />
         </div>
 
@@ -153,9 +165,31 @@ export default function FieldPage() {
               const pct = totalNodes > 0 ? Math.round((communityNodes / totalNodes) * 100) : 0
 
               return (
-                <Card key={weave.id} className="p-5 bg-card border-border hover:border-primary/50 transition-all group">
+                <Link
+                    href={`/weave/${weave.id}`}
+                    className="block group focus:outline-none"
+                    >
+                {/* <Card key={weave.id} className="p-5 bg-card border-border hover:border-primary/50 transition-all group"> */}
+                <Card key={weave.id} className="p-7 bg-card border-border 
+                        transition-all duration-200
+
+                        hover:border-primary/50
+                        hover:shadow-lg 
+                        hover:scale-[1.03]
+                        active:scale-[0.98]
+                        cursor-pointer
+                        
+                        ">
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <h3 className="font-bold text-foreground text-lg leading-tight group-hover:text-primary transition-colors">
+                    <h3 className="font-bold 
+                    text-foreground 
+                    text-lg 
+                    leading-tight 
+                    hover:shadow-lg 
+                        hover:scale-[1.03]
+                        active:scale-[0.98]
+                        group-hover:text-primary 
+                        transition-colors">
                       {highlight(weave.topic, search)}
                     </h3>
                     <Badge variant="outline" className="shrink-0 text-xs">{totalNodes} nodes</Badge>
@@ -199,12 +233,22 @@ export default function FieldPage() {
                     </div>
                   )}
 
-                  <Link href={`/weave/${weave.id}`}>
-                    <Button size="sm" className="w-full bg-primary hover:bg-primary/90">
-                      Open Weave →
-                    </Button>
-                  </Link>
+                  
+                    {/* <Card
+                        className="
+                        p-5 bg-card border-border 
+                        transition-all duration-200
+                        
+                        hover:shadow-lg 
+                        hover:scale-[1.02]
+                        active:scale-[0.98]
+                        cursor-pointer
+                        "
+                    /> */}
+                  
+
                 </Card>
+                  </Link>
               )
             })}
           </div>
