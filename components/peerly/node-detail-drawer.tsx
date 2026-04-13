@@ -12,6 +12,12 @@ import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { ContributionThread, type Contribution } from './contribution-thread'
 import { useTheme } from 'next-themes'
+import { useIsMobile } from "@/components/ui/use-mobile"
+
+ 
+
+
+// const isMobile = useIsMobile()
 
 interface NodeDetailDrawerProps {
   node: WeaveNode | null
@@ -99,6 +105,9 @@ export function NodeDetailDrawer({
   onUnlock,
   onContribute,
 }: NodeDetailDrawerProps) {
+
+        const isMobile = useIsMobile()
+
   const [contributions, setContributions] = useState<Contribution[]>([])
 
   useEffect(() => {
@@ -128,15 +137,23 @@ export function NodeDetailDrawer({
   }
 
   // Mobile: Use bottom sheet; Desktop: Use side drawer
-  return (
-    <>
-      {/* Mobile Bottom Sheet */}
+
+
+return (
+  
+  <>
+
+    {isMobile ? (
+      // 📱 MOBILE → FULL SCREEN / BOTTOM SHEET
       <BottomSheet
         open={open}
         onClose={onClose}
         title={node.title}
-        showCloseButton={true}
+        showCloseButton
       >
+        {/* mobile content */}
+
+
         <div className="space-y-4 pb-20">
           {/* Badges */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -319,10 +336,15 @@ export function NodeDetailDrawer({
             )}
           </div>
         </div>
-      </BottomSheet>
+     
 
-      {/* Desktop Side Drawer */}
-      <div
+
+      </BottomSheet>
+    ) : (
+      // 💻 DESKTOP → SIDEBAR
+     
+
+           <div
         className={`hidden md:block fixed right-0 top-0 z-50 h-full w-full max-w-[440px] bg-card border-l border-border shadow-2xl transition-transform duration-300 ease-out flex flex-col ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
@@ -566,7 +588,12 @@ export function NodeDetailDrawer({
             </Button>
           )}
         </div>
+      
+        {/* desktop content */}
       </div>
-    </>
-  )
+    )}
+  </>
+)
+
+
 }

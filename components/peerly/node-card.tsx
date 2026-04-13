@@ -39,10 +39,10 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
 
     return (
       <div
-        className="relative rounded-xl p-4 md:p-5 transition-all cursor-pointer group hover:scale-[1.01] active:scale-[0.99]"
+        className="relative rounded-xl p-4 md:p-5 transition-all cursor-pointer group hover:scale-[1.02] active:scale-[0.99]"
         style={{
           background: 'var(--card)',
-          border: `2px dashed ${accentColor}`,
+          border: `1px dashed ${accentColor}`,
           boxShadow: accentGlow,
         }}
         onClick={handleCardClick}
@@ -92,11 +92,12 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
             {!compact && onUnlock && (
               <button
                 onClick={(e) => { e.stopPropagation(); onUnlock(node) }}
-                className="rounded-full px-3 py-1.5 text-xs font-bold transition-all hover:brightness-110 active:scale-95 tap-target"
+                className="rounded-full px-3 py-1.5 text-xs font-bold transition-all hover:scale-[1.029] hover:brightness-110 active:scale-95 tap-target"
                 style={{
                   background: isImport ? 'rgba(96,165,250,0.15)' : 'rgba(245,158,11,0.15)',
                   color: accentColor,
-                  border: `1px solid ${accentColor}40`,
+                  border: `1px solid ${accentColor}4
+                  0`,
                 }}
               >
                 UNLOCK

@@ -92,10 +92,12 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
         </div>
 
         {/* View toggle pill */}
-        <div className="flex items-center self-start sm:self-auto rounded-full border border-border bg-card p-0.5">
+        <div className="flex items-center self-start sm:self-auto transition-200  rounded-full border border-border bg-card p-0.5">
           <button
             onClick={() => setView('list')}
-            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all tap-target ${
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs  hover:shadow-lg 
+                        hover:scale-[1.1]
+                        active:scale-[0.98] font-medium transition-all tap-target ${
               view === 'list'
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground'
@@ -106,7 +108,9 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
           </button>
           <button
             onClick={() => setView('map')}
-            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all tap-target ${
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 hover:shadow-lg 
+                        hover:scale-[1.1]
+                        active:scale-[0.98] text-xs font-medium transition-all tap-target ${
               view === 'map'
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground'
