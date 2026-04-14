@@ -176,7 +176,7 @@ export default function ExplorePage() {
                     const count = weaves.filter((w) => matchesField(w, field.name, field.keywords ?? [])).length
                     return (
                       <Link key={field.name} href={`/explore/${field.name.toLowerCase().replace(/\s+/g, '-')}`}>
-                        <Card className="p-5 hover:border-primary hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer bg-card border-border">
+                        <Card className="p-5 hover:border-primary hover:shadow-lg hover:scale-[1.045] transition-all cursor-pointer bg-card border-border">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                               {Icon ? <Icon className="h-5 w-5 text-primary" /> : <BookOpen className="h-5 w-5 text-primary" />}

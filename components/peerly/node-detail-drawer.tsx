@@ -13,6 +13,11 @@ import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { ContributionThread, type Contribution } from './contribution-thread'
 import { useTheme } from 'next-themes'
 
+
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import remarkBreaks from 'remark-breaks'
+
 interface NodeDetailDrawerProps {
   node: WeaveNode | null
   weaveId?: string
@@ -126,10 +131,18 @@ export function NodeDetailDrawer({
     else if (onContribute) onContribute(node)
     onClose()
   }
+const rawText = contributions[0]?.text || ''
 
+const cleanText = rawText
+  .replace(/:contentReference\[.*?\]\{.*?\}/g, '') // remove garbage
+  .replace(/\n/g, '\n\n') // fix spacing
+  
   // Mobile: Use bottom sheet; Desktop: Use side drawer
   return (
+    
     <>
+
+    
       {/* Mobile Bottom Sheet */}
       <BottomSheet
         open={open}
@@ -217,7 +230,13 @@ export function NodeDetailDrawer({
                 </h3>
               </div>
               <div className="text-sm leading-relaxed text-muted-foreground bg-background rounded-xl p-4 border border-border">
-                <p className="line-clamp-3">{contributions[0].text}</p>
+                <div className="prose prose-sm dark:prose-invert max-w-none ">
+                <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkBreaks]}
+                >
+                    {cleanText}
+                </ReactMarkdown>
+                </div>
                 {weaveId && (
                   <Link href={`/node/${weaveId}/${node.id}`} onClick={onClose} className="text-xs text-primary mt-2 inline-block hover:underline">
                     Read full →

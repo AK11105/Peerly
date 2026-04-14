@@ -96,7 +96,7 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
           <button
             onClick={() => setView('list')}
             className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs  hover:shadow-lg 
-                        hover:scale-[1.1]
+                        
                         active:scale-[0.98] font-medium transition-all tap-target ${
               view === 'list'
                 ? 'bg-primary text-primary-foreground'
@@ -109,7 +109,6 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
           <button
             onClick={() => setView('map')}
             className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 hover:shadow-lg 
-                        hover:scale-[1.1]
                         active:scale-[0.98] text-xs font-medium transition-all tap-target ${
               view === 'map'
                 ? 'bg-primary text-primary-foreground'

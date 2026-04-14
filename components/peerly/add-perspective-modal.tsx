@@ -15,6 +15,8 @@ import { ProRequiredError } from '@/lib/api'
 import { useLumens } from '@/lib/lumens-context'
 import { useCurrentUser } from '@/hooks/use-current-user'
 
+import MDEditor from "@uiw/react-md-editor"
+
 interface AddPerspectiveModalProps {
   node: WeaveNode | null
   weaveId: string

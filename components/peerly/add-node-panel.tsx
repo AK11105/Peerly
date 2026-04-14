@@ -91,7 +91,7 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
         />
       )}
 
-      <div className="relative z-50">
+      <div className="relative z-40">
         <button
           onClick={() => setIsExpanded(true)}
           className={`flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-300 hover:scale-105 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${

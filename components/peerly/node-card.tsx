@@ -2,6 +2,9 @@
 
 import type { WeaveNode } from '@/lib/types'
 import { useTheme } from 'next-themes'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeSanitize from "rehype-sanitize"
 
 interface NodeCardProps {
   node: WeaveNode
@@ -75,9 +78,29 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
         </div>
 
         {!compact && (
-          <p className="mb-4 text-sm leading-relaxed text-muted-foreground line-clamp-2">
-            {node.description}
-          </p>
+          
+          <div className="mb-4 text-sm leading-relaxed text-muted-foreground line-clamp-2 prose prose-sm dark:prose-invert">
+             <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeSanitize]}
+                components={{
+                    p: ({children }) => <p className="mb-1">{children}</p>,
+                    strong: ({children}) => <strong className="font-semibold text-foreground">{children}</strong>,
+                    a : ({ href, children }) => (
+                        <a href={href}  className="text-primary underline" target="_blank">
+                            {children}
+                        </a>
+                    ),
+
+
+                    code: ({children }) => (
+                        <code className="bg-muted px-1 py-0.5 rounded text-xs">{children}</code>
+                    ),
+                }}
+             >
+                {node.description}
+             </ReactMarkdown>
+          </div>
         )}
 
         <div className="flex items-center justify-between gap-3">
@@ -120,8 +143,9 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && handleCardClick()}
-    >
+      onKeyDown={(e) => e.key === 'Enter' && handleCardClick()}>
+
+
       <div className="mb-3 flex items-start justify-between gap-3">
         <h3 className={`font-semibold leading-snug text-foreground group-hover:text-foreground transition-colors ${compact ? 'text-sm' : 'text-base'}`}>
           {node.title}
@@ -154,9 +178,28 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
       </div>
 
       {!compact && (
-        <p className="mb-4 text-sm leading-relaxed text-muted-foreground line-clamp-2">
-          {node.description}
-        </p>
+<div className="mb-4 text-sm leading-relaxed text-muted-foreground line-clamp-2 prose prose-sm dark:prose-invert">
+             <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeSanitize]}
+                components={{
+                    p: ({children }) => <p className="mb-1">{children}</p>,
+                    strong: ({children}) => <strong className="font-semibold text-foreground">{children}</strong>,
+                    a : ({ href, children }) => (
+                        <a href={href}  className="text-primary underline" target="_blank">
+                            {children}
+                        </a>
+                    ),
+
+
+                    code: ({children }) => (
+                        <code className="bg-muted px-1 py-0.5 rounded text-xs">{children}</code>
+                    ),
+                }}
+             >
+                {node.description}
+             </ReactMarkdown>
+          </div>
       )}
 
       <div className="flex items-center justify-between gap-3">
@@ -172,6 +215,8 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
           </span>
         </div>
       </div>
+
+
     </div>
   )
 }
