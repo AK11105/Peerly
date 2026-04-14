@@ -259,7 +259,13 @@ const cleanText = rawText
                     <div className="h-5 w-5 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-[10px] font-bold text-primary">{i + 1}</span>
                     </div>
-                    <span className="leading-relaxed capitalize">{point}</span>
+                    <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed">
+  <ReactMarkdown
+    remarkPlugins={[remarkGfm, remarkBreaks]}
+  >
+    {point}
+  </ReactMarkdown>
+</div>
                   </div>
                 ))}
               </div>
