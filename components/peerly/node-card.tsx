@@ -50,6 +50,7 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
         }}
         onClick={handleCardClick}
         role="button"
+
         tabIndex={0}
         onKeyDown={(e) => e.key === 'Enter' && handleCardClick()}
       >
@@ -134,7 +135,7 @@ export function NodeCard({ node, onUnlock, onViewDetail, compact = false }: Node
 
   return (
     <div
-      className="relative rounded-xl p-4 md:p-5 transition-all cursor-pointer group hover:scale-[1.01] active:scale-[0.99]"
+      className="relative rounded-xl p-4 md:p-5 transition-all cursor-pointer group hover:scale-[1.05] active:scale-[0.99]"
       style={{
         background: 'var(--card)',
         border: '1px solid var(--border)',
