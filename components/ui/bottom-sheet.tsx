@@ -19,7 +19,7 @@ export function BottomSheet({ open, onClose, title, children, showCloseButton = 
 
   useEffect(() => {
     if (open) {
-      setHeight(window.innerHeight * 0.6) // 60% default
+      setHeight(window.innerHeight * 0.8) // 80% default height when opened
     }
   }, [open])
 
