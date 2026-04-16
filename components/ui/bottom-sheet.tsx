@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 
 interface BottomSheetProps {
@@ -14,7 +14,62 @@ interface BottomSheetProps {
 export function BottomSheet({ open, onClose, title, children, showCloseButton = true }: BottomSheetProps) {
   const contentRef = useRef<HTMLDivElement>(null)
 
-  // Close on Escape
+  const [height, setHeight] = useState(0)
+  const isDragging = useRef(false)
+
+  useEffect(() => {
+    if (open) {
+      setHeight(window.innerHeight * 0.6) // 60% default
+    }
+  }, [open])
+
+
+  // ✅ Drag handlers
+  const startDrag = () => {
+    isDragging.current = true
+  }
+
+  const stopDrag = () => {
+    isDragging.current = false
+  }
+
+  const onDrag = (e: MouseEvent | TouchEvent) => {
+    if (!isDragging.current) return
+
+    let clientY = 0
+
+    if ('touches' in e) {
+      clientY = e.touches[0].clientY
+    } else {
+      clientY = e.clientY
+    }
+
+    const newHeight = window.innerHeight - clientY
+
+    // limits
+    if (newHeight > 200 && newHeight < window.innerHeight - 100) {
+      setHeight(newHeight)
+    }
+  }
+
+  // ✅ Attach listeners
+  useEffect(() => {
+    window.addEventListener('mousemove', onDrag)
+    window.addEventListener('mouseup', stopDrag)
+
+    window.addEventListener('touchmove', onDrag)
+    window.addEventListener('touchend', stopDrag)
+
+    return () => {
+      window.removeEventListener('mousemove', onDrag)
+      window.removeEventListener('mouseup', stopDrag)
+
+      window.removeEventListener('touchmove', onDrag)
+      window.removeEventListener('touchend', stopDrag)
+    }
+  }, [])
+
+   // Close on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && open) onClose()
@@ -33,6 +88,7 @@ export function BottomSheet({ open, onClose, title, children, showCloseButton = 
     }
   }, [open])
 
+
   if (!open) return null
 
   return (
@@ -45,12 +101,17 @@ export function BottomSheet({ open, onClose, title, children, showCloseButton = 
 
       {/* Sheet */}
       <div
+        style={{height}}
         className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl border-t border-border shadow-2xl transition-transform duration-300 ease-out safe-area-bottom"
         role="dialog"
         aria-modal="true"
       >
         {/* Drag handle */}
-        <div className="flex items-center justify-center pt-3 pb-1">
+        <div 
+        onMouseDown={startDrag}
+        onTouchStart={startDrag}
+
+        className="flex items-center justify-center pt-3 pb-1 cursor-ns-resize">
           <div className="h-1 w-12 rounded-full bg-muted" />
         </div>
 
@@ -70,7 +131,7 @@ export function BottomSheet({ open, onClose, title, children, showCloseButton = 
         )}
 
         {/* Content */}
-        <div ref={contentRef} className="p-4 max-h-[70vh] overflow-y-auto">
+        <div ref={contentRef} className="p-4 overflow-y-auto flex-1">
           {children}
         </div>
       </div>
