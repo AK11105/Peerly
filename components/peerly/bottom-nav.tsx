@@ -12,6 +12,8 @@ const NAV_ITEMS = [
   { key: 'more', href: '/more', label: 'More', icon: Menu, isMenu: true },
 ]
 
+
+
 export function BottomNav() {
   const pathname = usePathname()
 
