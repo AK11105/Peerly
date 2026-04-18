@@ -47,8 +47,10 @@ Topic Input ──► AI Scaffold ──► Community Contributions ──► Ve
                     │                      │
               Gap Detection          Admin Review / Vote
 ```
+###**Loom keeps reorgansing newly added information so that we can learn any topic (with latest advancements) from Sratch -> Latest frontier trend in market.**  
 
 ---
+
 
 ## 🌟 Key Features
 
@@ -102,7 +104,7 @@ Auto-calculated **Rep Score**:
 Rep = (scaffold fills × 100) + (other contributions × 40) + (lumens × 2)
 ```
 
-### 💳 Billing (Razorpay)
+### 💳 Billing (Razorpay) (demo) 
 - One-time ₹99 Pro upgrade
 - Payment verified server-side via HMAC signature
 - Previously paid users can reactivate Pro for free
@@ -143,7 +145,7 @@ Rep = (scaffold fills × 100) + (other contributions × 40) + (lumens × 2)
 | **Database** | Supabase (PostgreSQL + Realtime) |
 | **Auth** | Clerk |
 | **AI** | Groq (LLaMA 3.1 8B / 3.3 70B), Google Gemini 1.5 Flash |
-| **Graph Viz** | ReactFlow (mind map), Cytoscape.js (export) |
+| **Mind Map** | ReactFlow (mind map), Cytoscape.js (export), Graph Viz |
 | **Markdown** | react-markdown + remark-gfm + rehype-sanitize |
 | **Payments** | Razorpay (one-time + HMAC verify) |
 | **File Storage** | Supabase Storage (attachments bucket) |
@@ -339,6 +341,7 @@ Built with ❤️ for the hackathon. Contributions, feedback, and stars are welc
 MIT — see [LICENSE](LICENSE) for details.
 
 
+New designs -
 https://stitch.withgoogle.com/projects/16902019438627232739
 
 
