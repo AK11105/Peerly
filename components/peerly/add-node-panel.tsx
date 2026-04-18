@@ -61,14 +61,9 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
       reset()
       setIsExpanded(false)
       onRefresh()
-      if (data?.status === 'pending') {
-        toast.info('Submitted for review — admin will approve shortly.', {
-          style: { borderLeft: '3px solid #6366F1' },
-        })
-      } else {
-        await earn(25)
-        toast.success('+25 LM earned — Node added!', { style: { borderLeft: '3px solid #22C55E' } })
-      }
+      toast.info('Submitted for review — admin will approve shortly.', {
+        style: { borderLeft: '3px solid #6366F1' },
+      })
     } catch (err: any) {
       if (err instanceof ProRequiredError) {
         toast.info('Pro plan required.', { description: 'Paid plans are coming soon. Stay tuned!', action: { label: 'See Plans', onClick: () => window.location.href = '/pricing' } })
@@ -183,7 +178,7 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
                 {isLoading ? 'Checking…' : 'ADD TO WEAVE'}
               </Button>
               <p className="text-center text-xs text-muted-foreground">
-                AI reviews relevance · admin approves before going live
+                Sent to admin for review before going live
               </p>
             </div>
           </div>

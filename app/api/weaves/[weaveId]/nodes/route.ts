@@ -88,7 +88,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
 
   // Duplicate check — block if similar title already exists (pending OR approved)
   const { data: existingAll } = await supabase
-    .from('nodes').select('title').eq('weave_id', weaveId).in('status', ['pending', 'approved'])
+    .from('nodes').select('title').eq('weave_id', weaveId).in('status', ['PENDING_ADMIN', 'approved'])
   if (existingAll) {
     const t = title.toLowerCase()
     const duplicate = existingAll.find((n: any) => {
@@ -100,27 +100,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
     }
   }
 
-  // Content check: relevance + spam + abuse in one pass
-  try {
-    const raw = await callAI(`Weave topic: "${weave.topic}"
-Proposed node — title: "${title}", description: "${description}"
-
-Reject if ANY of these are true:
-1. The subject matter is unrelated to the weave topic
-2. The content is spam (repetitive, promotional, gibberish, filler)
-3. The content is abusive (hate speech, harassment, explicit, personal attacks)
-
-Reply ONLY JSON: {"accept":true|false,"reason":"one sentence"}`)
-    const check = parseJSON(raw)
-    if (!check.accept) {
-      console.log('[content-check] rejected:', title, '—', check.reason)
-      return NextResponse.json({ error: `Node rejected: ${check.reason}` }, { status: 422 })
-    }
-  } catch (e) {
-    console.warn('[content-check] failed, allowing through:', e)
-  }
-
-  // 2. Formatter agent — assign correct depth + difficulty, then verify order
+  // Formatter agent — assign correct depth + difficulty, then verify order
   const { data: existingNodes } = await supabase
     .from('nodes').select('title,depth,difficulty').eq('weave_id', weaveId).eq('status', 'approved')
   let depth = 0
@@ -131,7 +111,6 @@ Reply ONLY JSON: {"accept":true|false,"reason":"one sentence"}`)
     const summary = sorted.map((n: any) => `- [depth:${n.depth}/diff:${n.difficulty}] ${n.title}`).join('\n')
     const maxDepth = Math.max(...existingNodes.map((n: any) => n.depth))
 
-    // Step A: assign depth + difficulty
     const formatterPrompt = `Learning map topic: "${weave.topic}"
 
 Existing nodes ordered by depth/difficulty:
@@ -147,12 +126,11 @@ Reply ONLY JSON: {"depth":<int>,"difficulty":<1-5>,"reasoning":"one sentence"}`
       const fmt = parseJSON(raw)
       depth = Math.min(Math.max(0, Number(fmt.depth) || 0), maxDepth + 1)
       difficulty = Math.min(5, Math.max(1, Math.round(Number(fmt.difficulty) || 3)))
-      console.log('[formatter]', title, `→ depth:${depth} diff:${difficulty} |`, fmt.reasoning)
+      console.log('[formatter]', title, `-> depth:${depth} diff:${difficulty} |`, fmt.reasoning)
     } catch (e) {
       console.warn('[formatter] failed, using defaults:', e)
     }
 
-    // Step B: order validation — verify placement is coherent with neighbors
     const withNew = [...sorted, { title, depth, difficulty }].sort((a, b) => a.depth - b.depth || a.difficulty - b.difficulty)
     const newIndex = withNew.findIndex((n) => n.title === title)
     const before = withNew[newIndex - 1]
@@ -179,17 +157,16 @@ Reply ONLY JSON: {"placement_ok":true|false,"corrected_depth":<int>|null,"correc
       if (!val.placement_ok && val.corrected_depth !== null) {
         depth = Math.min(Math.max(0, Number(val.corrected_depth)), maxDepth + 1)
         difficulty = Math.min(5, Math.max(1, Math.round(Number(val.corrected_difficulty) || difficulty)))
-        console.log('[order-validation] corrected →', `depth:${depth} diff:${difficulty}`)
+        console.log('[order-validation] corrected ->', `depth:${depth} diff:${difficulty}`)
       }
     } catch (e) {
       console.warn('[order-validation] failed, keeping formatter values:', e)
     }
   }
 
-  // 3. Insert as pending — HITL
+  // Insert as pending — admin must approve or send to community vote
   const nodeId = randomUUID()
 
-  // Resolve contributed_by from DB display_name to avoid storing raw Clerk IDs
   const { data: userRow } = await supabase.from('users').select('display_name').eq('username', userId).maybeSingle()
   const contributedBy = userRow?.display_name ?? body.contributed_by ?? 'anonymous'
 
@@ -203,13 +180,13 @@ Reply ONLY JSON: {"placement_ok":true|false,"corrected_depth":<int>|null,"correc
     is_scaffold: false,
     contributed_by: contributedBy,
     submitted_by: userId,
-    status: 'pending',
+    status: 'PENDING_ADMIN',
   }
 
   const { error: insertErr } = await supabase.from('nodes').insert(newNode)
   if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
 
-  // 4. Notify weave admins
+  // Notify weave admins
   const { data: admins } = await supabase.from('weave_admins').select('username').eq('weave_id', weaveId)
   if (admins?.length) {
     await supabase.from('notifications').insert(
@@ -224,8 +201,7 @@ Reply ONLY JSON: {"placement_ok":true|false,"corrected_depth":<int>|null,"correc
 
   await supabase.rpc('ensure_user', { p_username: userId })
 
-  // 5. Fire-and-forget gap detection
   runGapDetection(weaveId, weave.topic, title, description)
 
-  return NextResponse.json({ status: 'pending', node: newNode }, { status: 202 })
+  return NextResponse.json({ status: 'PENDING_ADMIN', node: newNode }, { status: 202 })
 }

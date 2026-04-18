@@ -43,7 +43,6 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!selectedWeave) return
-    // Always fetch pending count so badge is accurate regardless of active tab
     fetch(`/api/weaves/${selectedWeave.id}/pending-nodes`)
       .then((r) => r.json())
       .then((data) => setPendingNodes(Array.isArray(data) ? data : []))
@@ -60,7 +59,7 @@ export default function AdminPanel() {
       .finally(() => setLoadingPending(false))
   }, [selectedWeave, activeTab])
 
-  async function reviewNode(nodeId: string, action: 'approve' | 'reject') {
+  async function reviewNode(nodeId: string, action: 'approve' | 'reject' | 'send_to_vote') {
     if (!selectedWeave) return
     await fetch(`/api/weaves/${selectedWeave.id}/pending-nodes/${nodeId}/review`, {
       method: 'POST',
@@ -88,9 +87,9 @@ export default function AdminPanel() {
       <Navbar />
 
       <main className="min-h-screen">
-      <div className="flex flex-col md:flex-row">
+        <div className="flex flex-col md:flex-row">
           {/* Sidebar */}
-      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-background/50 md:sticky md:top-14 md:h-[calc(100vh-56px)] overflow-y-auto p-4 md:p-6">
+          <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-background/50 md:sticky md:top-14 md:h-[calc(100vh-56px)] overflow-y-auto p-4 md:p-6">
             <h3 className="font-bold text-foreground mb-6">Admin Panel</h3>
 
             <nav className="flex md:flex-col gap-1 mb-4 md:mb-8 overflow-x-auto pb-2 md:pb-0">
@@ -104,7 +103,7 @@ export default function AdminPanel() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={` shrink-0 w-full text-left px-3 py-2 rounded text-sm transition-all flex items-center justify-between ${
+                  className={`shrink-0 w-full text-left px-3 py-2 rounded text-sm transition-all flex items-center justify-between ${
                     activeTab === item.id
                       ? 'bg-primary/10 text-primary font-medium border-l-2 border-l-primary'
                       : 'text-muted-foreground hover:text-foreground'
@@ -121,7 +120,7 @@ export default function AdminPanel() {
               <h4 className="font-bold text-foreground text-sm mb-3">Weave Info</h4>
               {loadingWeaves ? (
                 <div className="space-y-2">
-                  {[1,2,3].map(i => <div key={i} className="h-4 bg-muted rounded animate-pulse" />)}
+                  {[1, 2, 3].map((i) => <div key={i} className="h-4 bg-muted rounded animate-pulse" />)}
                 </div>
               ) : weave ? (
                 <div className="space-y-2 text-xs">
@@ -164,7 +163,7 @@ export default function AdminPanel() {
                 <h2 className="text-3xl font-bold text-foreground mb-8">Manage Weaves</h2>
                 {loadingWeaves ? (
                   <div className="space-y-3 max-w-3xl">
-                    {[1,2,3].map(i => <div key={i} className="h-24 bg-card border border-border rounded-xl animate-pulse" />)}
+                    {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-card border border-border rounded-xl animate-pulse" />)}
                   </div>
                 ) : myWeaves.length === 0 ? (
                   <Card className="p-8 bg-card border-border text-center">
@@ -226,7 +225,7 @@ export default function AdminPanel() {
                   <p className="text-muted-foreground text-sm">Select a weave first.</p>
                 ) : loadingPending ? (
                   <div className="space-y-3 max-w-3xl">
-                    {[1,2,3].map(i => <div key={i} className="h-24 bg-card border border-border rounded-xl animate-pulse" />)}
+                    {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-card border border-border rounded-xl animate-pulse" />)}
                   </div>
                 ) : pendingNodes.length === 0 ? (
                   <Card className="p-8 bg-card border-border text-center max-w-3xl">
@@ -236,26 +235,38 @@ export default function AdminPanel() {
                   <div className="space-y-4 max-w-3xl">
                     {pendingNodes.map((node) => (
                       <Card key={node.id} className="p-5 bg-card border-border" style={node.flag ? { borderLeft: '3px solid #EF4444' } : {}}>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-foreground truncate">{node.title}</p>
-                              {node.flag && (
-                                <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>
-                                  ! {node.flag}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{node.description}</p>
-                            <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
-                              <span>depth {node.depth}</span>
-                              <span>difficulty {node.difficulty}</span>
-                              <span>by {node.submitted_by ?? 'anonymous'}</span>
-                            </div>
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="font-semibold text-foreground truncate">{node.title}</p>
+                            {node.flag && (
+                              <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                                ! {node.flag}
+                              </span>
+                            )}
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <Button size="sm" className="shrink-0 bg-primary hover:bg-primary/90 text-xs" onClick={() => reviewNode(node.id, 'approve')}>Approve</Button>
-                            <Button size="sm" variant="outline" className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10 text-xs" onClick={() => reviewNode(node.id, 'reject')}>Reject</Button>
+                            <Badge variant="outline" className="text-xs">depth {node.depth}</Badge>
+                            <Badge variant="outline" className="text-xs">diff {node.difficulty}</Badge>
+                          </div>
+                        </div>
+
+                        {/* Full description */}
+                        <div className="rounded-md bg-muted/40 border border-border p-3 mb-3 text-sm text-foreground whitespace-pre-wrap max-h-48 overflow-y-auto">
+                          {node.description || <span className="text-muted-foreground italic">No description provided.</span>}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs text-muted-foreground">by {(node as any).contributed_by ?? node.submitted_by ?? 'anonymous'}</p>
+                          <div className="flex gap-2">
+                            <Button size="sm" className="bg-primary hover:bg-primary/90 text-xs" onClick={() => reviewNode(node.id, 'approve')}>
+                              Approve
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-xs border-border" onClick={() => reviewNode(node.id, 'send_to_vote')}>
+                              Send to Vote
+                            </Button>
+                            <Button size="sm" variant="outline" className="border-destructive/50 text-destructive hover:bg-destructive/10 text-xs" onClick={() => reviewNode(node.id, 'reject')}>
+                              Reject
+                            </Button>
                           </div>
                         </div>
                       </Card>

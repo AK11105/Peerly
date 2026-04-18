@@ -88,8 +88,6 @@ export function ContributeModal({ node, weaveId, open, onOpenChange, onRefresh }
         attachments,
       })
 
-      await earn(50)
-
       setTitle('')
       setDescription('')
       setLinks([''])
@@ -98,8 +96,8 @@ export function ContributeModal({ node, weaveId, open, onOpenChange, onRefresh }
       onOpenChange(false)
       onRefresh()
 
-      toast.success('+50 LM earned! Contribution saved.', {
-        style: { borderLeft: '3px solid #22C55E' }
+      toast.info('Submitted for review — admin will approve shortly.', {
+        style: { borderLeft: '3px solid #6366F1' }
       })
 
     } catch (err: any) {

@@ -17,19 +17,18 @@ export async function POST(
   const { weaveId, nodeId } = await params
   const { action } = await req.json()
 
-  if (!['approve', 'reject'].includes(action)) {
-    return NextResponse.json({ error: 'action must be approve or reject' }, { status: 400 })
+  if (!['approve', 'reject', 'send_to_vote'].includes(action)) {
+    return NextResponse.json({ error: 'action must be approve, reject, or send_to_vote' }, { status: 400 })
   }
 
   const { data: adminRow } = await supabase
     .from('weave_admins').select('weave_id').eq('weave_id', weaveId).eq('username', userId).single()
   if (!adminRow) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const newStatus = action === 'approve' ? 'approved' : 'rejected'
+  const newStatus = action === 'approve' ? 'approved' : action === 'send_to_vote' ? 'PENDING_VOTE' : 'rejected'
   const { error } = await supabase.from('nodes').update({ status: newStatus }).eq('id', nodeId).eq('weave_id', weaveId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // If approved, award lumens to submitter
   if (action === 'approve') {
     const { data: node } = await supabase.from('nodes').select('submitted_by').eq('id', nodeId).single()
     if (node?.submitted_by) {
@@ -38,7 +37,6 @@ export async function POST(
     }
   }
 
-  // Mark notification read
   await supabase.from('notifications').update({ read: true }).eq('node_id', nodeId).eq('weave_id', weaveId)
 
   return NextResponse.json({ status: newStatus })

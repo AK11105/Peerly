@@ -99,13 +99,11 @@ export function AddPerspectiveModal({
       if (res.status === 403) throw new ProRequiredError()
       if (!res.ok) throw new Error('Failed')
 
-      await earn(25)
-
       handleClose()
       onRefresh()
 
-      toast.success('+25 LM earned! Perspective added.', {
-        style: { borderLeft: '3px solid #22C55E' }
+      toast.info('Submitted for review — admin will approve shortly.', {
+        style: { borderLeft: '3px solid #6366F1' }
       })
 
     } catch (err) {
@@ -248,7 +246,7 @@ export function AddPerspectiveModal({
 
             <Button onClick={handleSubmit} disabled={isLoading}
               className="px-4 py-2 text-sm font-semibold">
-              {isLoading ? 'Saving…' : 'Submit · +25 LM'}
+              {isLoading ? 'Saving…' : 'Submit Perspective'}
             </Button>
           </div>
 

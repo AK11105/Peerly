@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ weaveId
   if (!adminRow) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { data, error } = await supabase
-    .from('nodes').select('*').eq('weave_id', weaveId).eq('status', 'pending').order('created_at', { ascending: true })
+    .from('nodes').select('*').eq('weave_id', weaveId).eq('status', 'PENDING_ADMIN').order('created_at', { ascending: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json(data ?? [])

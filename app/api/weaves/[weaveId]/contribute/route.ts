@@ -3,54 +3,11 @@ import { auth } from '@clerk/nextjs/server'
 import { isPro } from '@/lib/check-plan'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
-import { callAI } from '@/lib/ai'
-import { parseJSON } from '@/lib/parse-json'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
-async function runGapDetection(weaveId: string, topic: string, newTitle: string, newDesc: string) {
-  try {
-    const { data: existingNodes } = await supabase
-      .from('nodes').select('title,depth,difficulty').eq('weave_id', weaveId).eq('status', 'approved')
-    if (!existingNodes?.length) return
-
-    const summary = existingNodes.map((n: any) => `- [depth:${n.depth}/diff:${n.difficulty}] ${n.title}`).join('\n')
-    const prompt = `Learning map topic: "${topic}"
-Existing approved nodes:
-${summary}
-Newly filled scaffold: "${newTitle}" — ${newDesc}
-Missing prerequisite NOT already listed?
-If YES: {"gap_detected":true,"missing_concept":"name","scaffold_node":{"title":"short title","description":"1-2 sentences.","depth":<int>,"difficulty":<1-5>}}
-If NO: {"gap_detected":false,"missing_concept":null,"scaffold_node":null}
-Output ONLY the JSON.`
-
-    const raw = await callAI(prompt)
-    const gap = parseJSON(raw)
-    if (!gap.gap_detected || !gap.scaffold_node) return
-
-    const s = gap.scaffold_node
-    if (!s.title?.trim() || !s.description?.trim()) return
-    const t = s.title.toLowerCase()
-    if (existingNodes.some((n: any) => n.title.toLowerCase().includes(t) || t.includes(n.title.toLowerCase()))) {
-      console.log('[gap-detection] skipped duplicate:', s.title)
-      return
-    }
-
-    const maxDepth = Math.max(...existingNodes.map((n: any) => n.depth))
-    await supabase.from('nodes').insert({
-      id: randomUUID(), weave_id: weaveId,
-      title: s.title.trim(), description: s.description.trim(),
-      depth: Math.min(Number(s.depth) || 0, maxDepth + 1),
-      difficulty: Math.min(5, Math.max(1, Math.round(Number(s.difficulty) || 1))),
-      is_scaffold: true, contributed_by: null, status: 'approved',
-    })
-  } catch (e) {
-    console.error('[gap-detection]', e)
-  }
-}
 
 export async function POST(req: Request, { params }: { params: Promise<{ weaveId: string }> }) {
   const { userId } = await auth()
@@ -72,45 +29,41 @@ export async function POST(req: Request, { params }: { params: Promise<{ weaveId
   const description = body.description?.trim()
   if (!description) return NextResponse.json({ error: 'description is required' }, { status: 400 })
 
-  // Content check: relevance + spam + abuse in one pass
-  try {
-    const raw = await callAI(`Weave topic: "${weave.topic}"
-Scaffold node: "${target.title}"
-Contribution — title: "${title}", description: "${description}"
-
-Reject if ANY of these are true:
-1. The subject matter is unrelated to the scaffold node or weave topic
-2. The content is spam (repetitive, promotional, gibberish, filler)
-3. The content is abusive (hate speech, harassment, explicit, personal attacks)
-
-Reply ONLY JSON: {"accept":true|false,"reason":"one sentence"}`)
-    const check = parseJSON(raw)
-    if (!check.accept) {
-      console.log('[content-check/contribute] rejected:', title, '—', check.reason)
-      return NextResponse.json({ error: `Contribution rejected: ${check.reason}` }, { status: 422 })
-    }
-  } catch (e) {
-    console.warn('[content-check/contribute] failed, allowing through:', e)
-  }
-
-  // Resolve contributed_by from DB display_name — never trust client-sent value
   const { data: userRow } = await supabase.from('users').select('display_name').eq('username', userId).maybeSingle()
   const contributedBy = userRow?.display_name ?? body.contributed_by ?? 'anonymous'
 
-  const { error: updateErr } = await supabase
-    .from('nodes')
-    .update({
-      title, description, is_scaffold: false, contributed_by: contributedBy,
-      status: 'approved',
-      attachments: body.attachments ?? null,
-    })
-    .eq('id', target.id)
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
+  // Queue as a pending contribution — store proposed content alongside scaffold reference
+  const pendingId = randomUUID()
+  const { error: insertErr } = await supabase.from('nodes').insert({
+    id: pendingId,
+    weave_id: weaveId,
+    title,
+    description,
+    depth: target.depth,
+    difficulty: target.difficulty,
+    is_scaffold: false,
+    contributed_by: contributedBy,
+    submitted_by: userId,
+    status: 'PENDING_ADMIN',
+    scaffold_source_id: target.id,
+    attachments: body.attachments ?? null,
+  })
+  if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
+
+  // Notify weave admins
+  const { data: admins } = await supabase.from('weave_admins').select('username').eq('weave_id', weaveId)
+  if (admins?.length) {
+    await supabase.from('notifications').insert(
+      admins.map((a: any) => ({
+        weave_id: weaveId,
+        type: 'pending_node',
+        node_id: pendingId,
+        username: a.username,
+      }))
+    )
+  }
 
   await supabase.rpc('ensure_user', { p_username: userId })
-  await supabase.from('contributions').insert({ weave_id: weaveId, node_id: target.id, username: userId, type: 'scaffold_fill', lumens_earned: 50 })
 
-  runGapDetection(weaveId, weave.topic, title, description)
-
-  return NextResponse.json({ success: true, node_id: target.id })
+  return NextResponse.json({ status: 'PENDING_ADMIN', node_id: pendingId }, { status: 202 })
 }

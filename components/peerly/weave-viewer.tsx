@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import dynamic from 'next/dynamic'
-import { List, Network, Share2 } from 'lucide-react'
+import { List, Network, Share2, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { toast } from 'sonner'
 import { CommunityProgressBar } from './community-progress-bar'
 import { NodeCard } from './node-card'
 import { NodeDetailDrawer } from './node-detail-drawer'
@@ -10,6 +11,8 @@ import { ContributeModal } from './contribute-modal'
 import { AddPerspectiveModal } from './add-perspective-modal'
 import { ExportModal } from './export-modal'
 import { SponsoredCard, SPONSORED_ADS } from './sponsored-card'
+import { supabase } from '@/lib/supabase'
+import { useUser } from '@clerk/nextjs'
 import type { Weave, WeaveNode } from '@/lib/types'
 import { STAGE_LABELS } from '@/lib/constants'
 
@@ -33,6 +36,40 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
   const [communityNode, setCommunityNode] = useState<WeaveNode | null>(null)
   const [perspectiveModalOpen, setPerspectiveModalOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+
+  const { user } = useUser()
+  const [votingNodes, setVotingNodes] = useState<WeaveNode[]>([])
+  const [userVotes, setUserVotes] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    supabase.from('nodes').select('*').eq('weave_id', weave.id).eq('status', 'PENDING_VOTE')
+      .then(({ data }) => setVotingNodes(data ?? []))
+  }, [weave.id])
+
+  useEffect(() => {
+    if (!user?.id) return
+    supabase.from('node_votes').select('node_id, vote').eq('username', user.id)
+      .then(({ data }) => {
+        const map: Record<string, string> = {}
+        for (const v of data ?? []) map[v.node_id] = v.vote
+        setUserVotes(map)
+      })
+  }, [user?.id])
+
+  async function castVote(nodeId: string, vote: 'accept' | 'reject') {
+    const res = await fetch(`/api/nodes/${nodeId}/vote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vote }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error ?? 'Vote failed'); return }
+    setUserVotes(prev => ({ ...prev, [nodeId]: prev[nodeId] === vote ? '' : vote }))
+    if (data.node_status === 'approved' || data.node_status === 'rejected') {
+      setVotingNodes(prev => prev.filter(n => n.id !== nodeId))
+      toast.success(`Node ${data.node_status} by community vote!`)
+    }
+  }
 
   const handleViewDetail = (node: WeaveNode) => { setSelectedNode(node); setDrawerOpen(true) }
   const handleUnlock = (node: WeaveNode) => { setScaffoldNode(node); setScaffoldModalOpen(true) }
@@ -127,6 +164,43 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
       )}
 
       {view === 'map' && <MindMapView weaveNodes={weave.nodes} onViewDetail={handleViewDetail} />}
+
+      {votingNodes.length > 0 && (
+        <section className="mt-10">
+          <div className="mb-4 flex items-center gap-3">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Open for Community Vote</h2>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <div className="mx-auto flex max-w-[640px] flex-col gap-3">
+            {votingNodes.map((node) => (
+              <div key={node.id} className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div>
+                    <p className="font-semibold text-foreground text-sm">{node.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-3">{node.description}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary border border-primary/20">Vote</span>
+                </div>
+                <div className="flex items-center gap-2 mt-3">
+                  <button
+                    onClick={() => castVote(node.id, 'accept')}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all ${userVotes[node.id] === 'accept' ? 'bg-green-500/20 text-green-400 border-green-500/40' : 'border-border text-muted-foreground hover:text-green-400 hover:border-green-500/40'}`}
+                  >
+                    <ThumbsUp className="h-3.5 w-3.5" /> Accept
+                  </button>
+                  <button
+                    onClick={() => castVote(node.id, 'reject')}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all ${userVotes[node.id] === 'reject' ? 'bg-red-500/20 text-red-400 border-red-500/40' : 'border-border text-muted-foreground hover:text-red-400 hover:border-red-500/40'}`}
+                  >
+                    <ThumbsDown className="h-3.5 w-3.5" /> Reject
+                  </button>
+                  {node.contributed_by && <span className="ml-auto text-xs text-muted-foreground">by @{node.contributed_by}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <NodeDetailDrawer
         node={selectedNode}

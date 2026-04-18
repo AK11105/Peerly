@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { isPro } from '@/lib/check-plan'
 import { createClient } from '@supabase/supabase-js'
+import { randomUUID } from 'crypto'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,33 +22,46 @@ export async function POST(
 
   const { data: target, error: fetchErr } = await supabase
     .from('nodes')
-    .select('description')
+    .select('id, title, description')
     .eq('id', nodeId)
     .eq('weave_id', weaveId)
     .single()
 
   if (fetchErr || !target) return NextResponse.json({ error: 'Node not found' }, { status: 404 })
 
-  const author = body.contributed_by ?? userId
-  const attachmentsSuffix = body.attachments?.length
-    ? `\nAttachments: ${JSON.stringify(body.attachments)}`
-    : ''
-  const appended = `${target.description}\n\n---\n\n**${author}:** ${body.description}${attachmentsSuffix}`
+  const { data: userRow } = await supabase.from('users').select('display_name').eq('username', userId).maybeSingle()
+  const contributedBy = userRow?.display_name ?? body.contributed_by ?? 'anonymous'
 
-  const { data: updated, error: updateErr } = await supabase
-    .from('nodes')
-    .update({ description: appended })
-    .eq('id', nodeId)
-    .select()
-    .single()
+  // Queue perspective as pending — admin approves or sends to community vote
+  const pendingId = randomUUID()
+  const { error: insertErr } = await supabase.from('nodes').insert({
+    id: pendingId,
+    weave_id: weaveId,
+    title: target.title,
+    description: body.description,
+    is_scaffold: false,
+    contributed_by: contributedBy,
+    submitted_by: userId,
+    status: 'PENDING_ADMIN',
+    perspective_source_id: nodeId,
+    attachments: body.attachments ?? null,
+  })
+  if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
 
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
+  // Notify weave admins
+  const { data: admins } = await supabase.from('weave_admins').select('username').eq('weave_id', weaveId)
+  if (admins?.length) {
+    await supabase.from('notifications').insert(
+      admins.map((a: any) => ({
+        weave_id: weaveId,
+        type: 'pending_node',
+        node_id: pendingId,
+        username: a.username,
+      }))
+    )
+  }
 
   await supabase.rpc('ensure_user', { p_username: userId })
-  await supabase.from('contributions').insert({
-    weave_id: weaveId, node_id: nodeId, username: userId, type: 'perspective', lumens_earned: 25,
-  })
-//   await supabase.rpc('earn_lumens', { p_username: userId, p_amount: 25 })
 
-  return NextResponse.json(updated)
+  return NextResponse.json({ status: 'PENDING_ADMIN', node_id: pendingId }, { status: 202 })
 }
