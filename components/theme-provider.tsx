@@ -13,10 +13,11 @@ interface PeerlyThemeProviderProps extends Omit<ThemeProviderProps, 'attribute' 
 export function ThemeProvider({ children, defaultTheme = 'system', defaultAccent = 'green', ...props }: PeerlyThemeProviderProps) {
   return (
     <NextThemesProvider
-      attribute="class"
+      attribute="data-theme"
       defaultTheme={defaultTheme}
       enableSystem={true}
       disableTransitionOnChange
+      themes={['light', 'dark', 'dim']}
       {...props}
     >
       <AccentColorProvider accent={defaultAccent}>

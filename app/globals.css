@@ -1,10 +1,40 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@custom-variant dark (&:is([data-theme="dark"] *, [data-theme="dim"] *));
 
 /* ════════════════════════════════════════════════════════════
    THEME SYSTEM — Semantic Color Tokens
    Supports: light, dark, dim (soft dark), and accent colors
    ════════════════════════════════════════════════════════════ */
+
+/* Default fallback (dark) — must come BEFORE [data-theme] blocks */
+:root {
+  --background: #0a0a0a;
+  --foreground: #f9fafb;
+  --card: #111111;
+  --card-foreground: #f9fafb;
+  --popover: #111111;
+  --popover-foreground: #f9fafb;
+  --primary: #22c55e;
+  --primary-foreground: #0a0a0a;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #f9fafb;
+  --muted: #1a1a1a;
+  --muted-foreground: #6b7280;
+  --accent: #15803d;
+  --accent-foreground: #f9fafb;
+  --destructive: #ef4444;
+  --destructive-foreground: #f9fafb;
+  --border: #1f1f1f;
+  --input: #1a1a1a;
+  --ring: #22c55e;
+  --radius: 0.5rem;
+  --green-primary: #22c55e;
+  --green-dark: #15803d;
+  --green-glow: #4ade80;
+  --amber: #f59e0b;
+  --danger: #ef4444;
+}
 
 /* ─── Light Mode ───────────────────────────────────────────── */
 [data-theme="light"] {
@@ -91,35 +121,6 @@
   --danger: #f87171;
 }
 
-/* Default to dark if no theme specified (for SSR) */
-:root {
-  --background: #0a0a0a;
-  --foreground: #f9fafb;
-  --card: #111111;
-  --card-foreground: #f9fafb;
-  --popover: #111111;
-  --popover-foreground: #f9fafb;
-  --primary: #22c55e;
-  --primary-foreground: #0a0a0a;
-  --secondary: #1a1a1a;
-  --secondary-foreground: #f9fafb;
-  --muted: #1a1a1a;
-  --muted-foreground: #6b7280;
-  --accent: #15803d;
-  --accent-foreground: #f9fafb;
-  --destructive: #ef4444;
-  --destructive-foreground: #f9fafb;
-  --border: #1f1f1f;
-  --input: #1a1a1a;
-  --ring: #22c55e;
-  --radius: 0.5rem;
-  --green-primary: #22c55e;
-  --green-dark: #15803d;
-  --green-glow: #4ade80;
-  --amber: #f59e0b;
-  --danger: #ef4444;
-}
-
 /* ─── Accent Colors ────────────────────────────────────────── */
 /* Applied on top of any theme via data-accent attribute */
 [data-accent="blue"] {
@@ -195,19 +196,16 @@
 }
 
 @layer components {
-  /* Tap target minimum size (WCAG accessibility) */
   .tap-target {
     min-height: 44px;
     min-width: 44px;
     padding: 0.5rem 1rem;
   }
 
-  /* Safe area for bottom nav on devices with home indicator */
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* Page padding - mobile first */
   .page-padding {
     padding-left: 1rem;
     padding-right: 1rem;

@@ -17,6 +17,12 @@ export function useAccentColor() {
     }
   }, [])
 
+  useEffect(() => {
+    const root = document.documentElement
+    root.removeAttribute('data-accent')
+    if (accent !== 'green') root.setAttribute('data-accent', accent)
+  }, [accent])
+
   const setAccent = (color: AccentColor) => {
     setAccentState(color)
     localStorage.setItem(ACCENT_KEY, color)
