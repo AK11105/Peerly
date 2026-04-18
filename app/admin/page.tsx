@@ -20,6 +20,9 @@ export default function AdminPanel() {
   const [loadingWeaves, setLoadingWeaves] = useState(true)
   const [pendingNodes, setPendingNodes] = useState<WeaveNode[]>([])
   const [loadingPending, setLoadingPending] = useState(false)
+  const [approvedNodes, setApprovedNodes] = useState<WeaveNode[]>([])
+  const [loadingNodes, setLoadingNodes] = useState(false)
+  const [deletingNodeId, setDeletingNodeId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!username) return
@@ -59,6 +62,16 @@ export default function AdminPanel() {
       .finally(() => setLoadingPending(false))
   }, [selectedWeave, activeTab])
 
+  useEffect(() => {
+    if (!selectedWeave || activeTab !== 'nodes') return
+    setLoadingNodes(true)
+    fetch(`/api/weaves/${selectedWeave.id}/nodes-list`)
+      .then((r) => r.json())
+      .then((data) => setApprovedNodes(Array.isArray(data) ? data : []))
+      .catch(() => setApprovedNodes([]))
+      .finally(() => setLoadingNodes(false))
+  }, [selectedWeave, activeTab])
+
   async function reviewNode(nodeId: string, action: 'approve' | 'reject' | 'send_to_vote') {
     if (!selectedWeave) return
     await fetch(`/api/weaves/${selectedWeave.id}/pending-nodes/${nodeId}/review`, {
@@ -67,6 +80,18 @@ export default function AdminPanel() {
       body: JSON.stringify({ action }),
     })
     setPendingNodes((prev) => prev.filter((n) => n.id !== nodeId))
+  }
+
+  async function deleteNode(nodeId: string) {
+    if (!selectedWeave) return
+    if (!confirm('Delete this node? The weave will be restructured automatically.')) return
+    setDeletingNodeId(nodeId)
+    try {
+      const res = await fetch(`/api/weaves/${selectedWeave.id}/nodes/${nodeId}`, { method: 'DELETE' })
+      if (res.ok) setApprovedNodes((prev) => prev.filter((n) => n.id !== nodeId))
+    } finally {
+      setDeletingNodeId(null)
+    }
   }
 
   async function deleteWeave(weaveId: string) {
@@ -95,6 +120,7 @@ export default function AdminPanel() {
             <nav className="flex md:flex-col gap-1 mb-4 md:mb-8 overflow-x-auto pb-2 md:pb-0">
               {[
                 { id: 'weaves', label: 'My Weaves' },
+                { id: 'nodes', label: 'Manage Nodes' },
                 { id: 'pending', label: 'Pending Nodes', badge: pendingNodes.length > 0 ? pendingNodes.length : null },
                 { id: 'proposals', label: 'Proposals' },
                 { id: 'voting', label: 'Voting' },
@@ -212,6 +238,50 @@ export default function AdminPanel() {
                         </Card>
                       )
                     })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Manage Nodes Tab */}
+            {activeTab === 'nodes' && (
+              <div>
+                <h2 className="text-3xl font-bold text-foreground mb-2">Manage Nodes</h2>
+                <p className="text-sm text-muted-foreground mb-8">Delete a node and the weave will automatically restructure itself.</p>
+                {!selectedWeave ? (
+                  <p className="text-muted-foreground text-sm">Select a weave first.</p>
+                ) : loadingNodes ? (
+                  <div className="space-y-3 max-w-3xl">
+                    {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-card border border-border rounded-xl animate-pulse" />)}
+                  </div>
+                ) : approvedNodes.length === 0 ? (
+                  <Card className="p-8 bg-card border-border text-center max-w-3xl">
+                    <p className="text-muted-foreground">No approved nodes yet.</p>
+                  </Card>
+                ) : (
+                  <div className="space-y-3 max-w-3xl">
+                    {approvedNodes.map((node) => (
+                      <Card key={node.id} className="p-4 bg-card border-border flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-foreground text-sm truncate">{node.title}</p>
+                            <Badge variant="outline" className="text-xs shrink-0">depth {node.depth}</Badge>
+                            <Badge variant="outline" className="text-xs shrink-0">diff {node.difficulty}</Badge>
+                            {node.is_scaffold && <Badge className="text-xs shrink-0 bg-muted text-muted-foreground">scaffold</Badge>}
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{node.description}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={deletingNodeId === node.id}
+                          className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10 text-xs"
+                          onClick={() => deleteNode(node.id)}
+                        >
+                          {deletingNodeId === node.id ? 'Deleting…' : 'Delete'}
+                        </Button>
+                      </Card>
+                    ))}
                   </div>
                 )}
               </div>

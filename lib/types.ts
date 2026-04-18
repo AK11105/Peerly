@@ -14,7 +14,7 @@ export interface WeaveNode {
   difficulty: number
   is_scaffold: boolean
   contributed_by: string | null
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'pending' | 'approved' | 'rejected' | 'PENDING_ADMIN' | 'PENDING_VOTE'
   submitted_by?: string | null
   explainer?: string | null
   sources?: NodeSource[] | null
