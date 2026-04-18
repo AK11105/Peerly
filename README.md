@@ -115,21 +115,21 @@ Rep = (scaffold fills × 100) + (other contributions × 40) + (lumens × 2)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     Next.js 15 App                       │
+│                     Next.js 15 App                      │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────┐  │
 │  │  Client UI   │  │  API Routes  │  │  Chrome Ext.  │  │
 │  │  (React/TW)  │  │  (Edge/Node) │  │  (Manifest V3)│  │
 │  └──────┬───────┘  └──────┬───────┘  └───────┬───────┘  │
-│         │                 │                   │           │
-└─────────┼─────────────────┼───────────────────┼───────────┘
+│         │                 │                   │         │
+└─────────┼─────────────────┼───────────────────┼─────────┘
           │                 │                   │
     ┌─────▼─────┐    ┌──────▼──────┐    ┌───────▼──────┐
-    │  Supabase  │    │  AI Layer   │    │   Razorpay   │
-    │  Postgres  │    │  Groq/Gem.  │    │   Payments   │
-    │  Realtime  │    │  (Scaffold, │    └──────────────┘
-    │  Storage   │    │  Gap Detect,│
-    │  Auth RLS  │    │  Explain)   │
-    └────────────┘    └─────────────┘
+    │  Supabase │    │  AI Layer   │    │   Razorpay   │
+    │  Postgres │    │  Groq/Gem.  │    │   Payments   │
+    │  Realtime │    │  (Scaffold, │    └──────────────┘
+    │  Storage  │    │  Gap Detect,│
+    │  Auth RLS │    │  Explain)   │
+    └───────────┘    └─────────────┘
           │
     ┌─────▼─────┐
     │   Clerk   │
