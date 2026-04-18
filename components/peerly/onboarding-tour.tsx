@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, ChevronLeft, ChevronRight, Sparkles, ListTree, Users, Star, Award,  Plus, MessageSquare, Lightbulb } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Sparkles, ListTree, Users, Star, Award, Plus, MessageSquare, Lightbulb, BookOpen } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -16,105 +16,78 @@ interface OnboardingTourProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onComplete?: () => void
+  onIntentSelect?: (intent: 'learn' | 'contribute' | 'explore' | 'class') => void
 }
 
+// Intent options for onboarding
+export const ONBOARDING_INTENTS = {
+  learn: { label: 'I want to learn', icon: BookOpen, description: 'Explore structured knowledge' },
+  contribute: { label: 'I want to contribute', icon: Plus, description: 'Share your expertise' },
+  explore: { label: 'Just exploring', icon: Sparkles, description: 'Browse around' },
+  class: { label: 'Here with class', icon: Users, description: 'Join a class group' },
+} as const
 
+// Condensed tour steps - focused on action, not reading
 const TOUR_STEPS = [
   {
-    title: 'Welcome to Loom!',
-    description: 'Where humans & AI learn in synergy',
+    title: 'Welcome to Peerly',
+    description: 'Your first meaningful action is 30 seconds away',
     icon: Sparkles,
-    content:
-      'Loom is not just another AI chatbot. Instead of conversations that fade away, Loom helps you build structured, evolving knowledge. Here, AI guides the process while humans create, refine, and validate what truly matters.',
+    content: null, // Special step - renders intent selection
     color: 'text-primary',
     bgColor: 'bg-primary/10',
   },
   {
     title: 'Knowledge as Weaves',
-    description: 'Structured, not scattered',
-    icon: Lightbulb,
-    content:
-      'Every topic on Loom exists as a "weave" — a structured network of knowledge nodes. Instead of jumping between chats, you move linearly from basics to advanced ideas, making learning easier to follow, revisit, and truly retain. You can browse weaves organized by field - from Computer Science to Psychology.', 
-    color: 'text-yellow-500',
-    bgColor: 'bg-yellow-500/10',
-  },
-  {
-    title: 'Mind Maps',
-    description: 'Linear but actually complex',
+    description: 'Structured learning paths',
     icon: ListTree,
-    content:
-      'You can view the weave in both linear and tree-like mindmap fashion allowing anybody to get to the frontier of any topic without worrying about the underlying complexity of the topic.', 
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500/10',
+    content: (
+      <div className="space-y-3">
+        <p className="text-foreground">
+          Topics exist as <strong>"weaves"</strong> — structured networks of knowledge nodes.
+          Move from basics to advanced concepts linearly.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Tip: Click any weave card on the Explore page to start learning!
+        </p>
+      </div>
+    ),
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
   },
   {
-    title: 'AI as a Guide, Not the Source',
-    description: 'You build. AI organizes.',
-    icon: Plus,
-    content:
-      'When you create a weave, AI generates scaffolds — temporary structures highlighting what should be learned. But the real knowledge comes from people. AI only organizes, rearranges, detects gaps (missing topics) and helps maintain logical flow.',
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
-  },
-  {
-    title: 'Contribute to Knowledge',
-    description: 'Turn scaffolds into real learning',
+    title: 'How Contributions Work',
+    description: 'AI scaffolds → Human knowledge',
     icon: Users,
-    content:
-      'Replace AI-generated scaffolds with actual insights, explanations, and resources. Every contribution strengthens the weave and helps others learn better. The more you contribute, the stronger the collective intelligence becomes.',
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
+    content: (
+      <div className="space-y-3">
+        <p className="text-foreground">
+          AI generates <strong>scaffolds</strong> (placeholder nodes) for concepts that need explanations.
+        </p>
+        <div className="flex gap-2">
+          <div className="flex-1 p-3 rounded-lg border border-dashed border-yellow-500/50 bg-yellow-500/5">
+            <p className="text-xs font-semibold text-yellow-500">⚡ AI Draft</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Click UNLOCK to replace with your knowledge</p>
+          </div>
+          <div className="flex-1 p-3 rounded-lg border border-green-500/50 bg-green-500/5">
+            <p className="text-xs font-semibold text-green-500">✓ Community</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Human-contributed explanations</p>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Every contribution earns <strong>Lumens</strong> — redeemable for premium tools!
+        </p>
+      </div>
+    ),
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
   },
-  {
-    title: 'Learn by Building',
-    description: 'Retention through participation',
-    icon: Star,
-    content:
-      'Unlike passive learning, Loom ensures you remember what you learn. By contributing, refining, and structuring knowledge yourself, you naturally build deeper understanding that sticks over time.',
-    color: 'text-amber-500',
-    bgColor: 'bg-amber-500/10',
-  },
-  {
-    title: 'Community-Validated Knowledge',
-    description: 'Not AI-approved — human-approved',
-    icon: MessageSquare,
-    content:
-      'Content on Loom is shaped and validated by the community. Discussions, contributions, and feedback ensure that knowledge evolves with real perspectives — not just AI-generated responses.',
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500/10',
-  },
-  {
-    title: 'Reputation & Visibility',
-    description: 'Earn trust through contribution',
-    icon: Award,
-    content:
-      'Your reputation grows as you contribute meaningful knowledge. High-quality contributions increase your visibility (Rep), helping your questions get answered faster and your voice carry more weight in the community.',
-    color: 'text-emerald-400',
-    bgColor: 'bg-emerald-500/10',
-  },
-
-  {
-    title: 'Earn Lumens',
-    description: 'Get rewarded for your contributions',
-    icon: Star,
-    content: 'Every contribution earns Lumens. Use them to redeem premium subscriptions for productivity tools like Grammarly or Notion. The more you contribute, the more you earn!',
-    color: 'text-amber-500',
-    bgColor: 'bg-amber-500/10',
-  },
-  {
-    title: 'Join the Community',
-    description: 'Connect with fellow learners',
-    icon: MessageSquare,
-    content: 'Visit the Community Hub to discuss ideas, ask questions, and collaborate. Loom is built on the belief that knowledge grows when shared.',
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500/10',
-  },
-
 ]
 
-export function OnboardingTour({ open, onOpenChange, onComplete }: OnboardingTourProps) {
+export function OnboardingTour({ open, onOpenChange, onComplete, onIntentSelect }: OnboardingTourProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [isAutoScrolling, setIsAutoScrolling] = useState(true)
+  const [selectedIntent, setSelectedIntent] = useState<'learn' | 'contribute' | 'explore' | 'class' | null>(null)
 
   const goToNext = useCallback(() => {
     setCurrentStep((prev) => {
@@ -139,25 +112,35 @@ export function OnboardingTour({ open, onOpenChange, onComplete }: OnboardingTou
   const handleComplete = useCallback(() => {
     setIsAutoScrolling(false)
     onOpenChange(false)
+    if (selectedIntent && onIntentSelect) {
+      onIntentSelect(selectedIntent)
+    }
     onComplete?.()
-  }, [onOpenChange, onComplete])
+  }, [onOpenChange, onComplete, selectedIntent, onIntentSelect])
 
-  // Auto-scroll functionality
+  const handleIntentSelect = useCallback((intent: 'learn' | 'contribute' | 'explore' | 'class') => {
+    setSelectedIntent(intent)
+    // Auto-advance after selection
+    setTimeout(() => goToNext(), 300)
+  }, [goToNext])
+
+  // Auto-scroll functionality (skip for first step which requires interaction)
   useEffect(() => {
-    if (!open || !isAutoScrolling) return
+    if (!open || !isAutoScrolling || currentStep === 0) return
 
     const timer = setInterval(() => {
       goToNext()
-    }, 5000) // 5 seconds per slide
+    }, 6000)
 
     return () => clearInterval(timer)
-  }, [open, isAutoScrolling, goToNext])
+  }, [open, isAutoScrolling, currentStep, goToNext])
 
   // Reset when tour opens
   useEffect(() => {
     if (open) {
       setCurrentStep(0)
-      setIsAutoScrolling(true)
+      setIsAutoScrolling(false) // Don't auto-scroll on welcome screen
+      setSelectedIntent(null)
     }
   }, [open])
 
@@ -186,23 +169,43 @@ export function OnboardingTour({ open, onOpenChange, onComplete }: OnboardingTou
                 </DialogDescription>
               </div>
             </div>
-            {/* <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleComplete()}
-              className="h-8 w-8 rounded-full"
-            >
-              <X className="h-4 w-4" />
-            </Button> */}
           </div>
         </DialogHeader>
 
         {/* Content */}
         <div className="px-6 pb-6">
           <div className="bg-background rounded-lg p-6 mb-6 border border-border">
-            <p className="text-foreground text-base leading-relaxed">
-              {current.content}
-            </p>
+            {currentStep === 0 ? (
+              // Intent selection screen
+              <div className="space-y-4">
+                <p className="text-foreground">
+                  Peerly is where humans & AI learn in synergy. Instead of AI conversations that fade away,
+                  you'll build structured knowledge that lasts.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {(Object.entries(ONBOARDING_INTENTS) as [keyof typeof ONBOARDING_INTENTS, typeof ONBOARDING_INTENTS[keyof typeof ONBOARDING_INTENTS]][]).map(([key, intent]) => {
+                    const IntentIcon = intent.icon
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => handleIntentSelect(key)}
+                        className={`p-4 rounded-xl border text-left transition-all ${
+                          selectedIntent === key
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-primary/50 hover:bg-muted'
+                        }`}
+                      >
+                        <IntentIcon className="h-5 w-5 text-primary mb-2" />
+                        <p className="text-sm font-semibold text-foreground">{intent.label}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{intent.description}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              current.content
+            )}
           </div>
 
           {/* Progress Dots */}
@@ -227,24 +230,25 @@ export function OnboardingTour({ open, onOpenChange, onComplete }: OnboardingTou
               Step {currentStep + 1} of {TOUR_STEPS.length}
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={goToPrev}
-                disabled={currentStep === 0}
-                className="gap-1"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
+              {currentStep > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={goToPrev}
+                  className="gap-1"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+              )}
               {currentStep === TOUR_STEPS.length - 1 ? (
                 <Button onClick={handleComplete} className="gap-1">
                   Get Started
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               ) : (
-                <Button onClick={goToNext} className="gap-1">
-                  Next
-                  <ChevronRight className="h-4 w-4" />
+                <Button onClick={goToNext} className="gap-1" disabled={currentStep === 0 && !selectedIntent}>
+                  {currentStep === 0 ? 'Select an option' : 'Next'}
+                  {currentStep !== 0 && <ChevronRight className="h-4 w-4" />}
                 </Button>
               )}
             </div>

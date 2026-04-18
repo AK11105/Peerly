@@ -99,7 +99,7 @@ export default function ExplorePage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-6 py-12 lg:px-8">
+      <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 md:px-6 md:pb-8 lg:px-8">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0">
 
@@ -176,7 +176,7 @@ export default function ExplorePage() {
                     const count = weaves.filter((w) => matchesField(w, field.name, field.keywords ?? [])).length
                     return (
                       <Link key={field.name} href={`/explore/${field.name.toLowerCase().replace(/\s+/g, '-')}`}>
-                        <Card className="p-5 hover:border-primary hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer bg-card border-border">
+                        <Card className="p-5 hover:border-primary hover:shadow-lg hover:scale-[1.045] transition-all cursor-pointer bg-card border-border">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                               {Icon ? <Icon className="h-5 w-5 text-primary" /> : <BookOpen className="h-5 w-5 text-primary" />}
@@ -288,7 +288,7 @@ export default function ExplorePage() {
               <div className="rounded-lg border border-dashed border-border p-4 text-center">
                 <p className="text-xs text-muted-foreground mb-2">Reach learners worldwide</p>
                 <Link href="/advertise">
-                  <Button variant="outline" size="sm" className="w-full text-xs">Advertise on Peerly</Button>
+                  <Button variant="outline" size="sm" className="w-full text-xs">Advertise on Loom</Button>
                 </Link>
               </div>
             </div>

@@ -1,57 +1,170 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-@custom-variant dark (&:is(.dark *));
+/* ════════════════════════════════════════════════════════════
+   THEME SYSTEM — Semantic Color Tokens
+   Supports: light, dark, dim (soft dark), and accent colors
+   ════════════════════════════════════════════════════════════ */
 
-:root {
-  --background: #0A0A0A;
-  --foreground: #F9FAFB;
-  --card: #111111;
-  --card-foreground: #F9FAFB;
-  --popover: #111111;
-  --popover-foreground: #F9FAFB;
-  --primary: #22C55E;
-  --primary-foreground: #0A0A0A;
-  --secondary: #1A1A1A;
-  --secondary-foreground: #F9FAFB;
-  --muted: #1A1A1A;
-  --muted-foreground: #6B7280;
-  --accent: #15803D;
-  --accent-foreground: #F9FAFB;
-  --destructive: #EF4444;
-  --destructive-foreground: #F9FAFB;
-  --border: #1F1F1F;
-  --input: #1A1A1A;
-  --ring: #22C55E;
+/* ─── Light Mode ───────────────────────────────────────────── */
+[data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #f9fafb;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #22c55e;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #1f2937;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --accent: #86efac;
+  --accent-foreground: #14532d;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #22c55e;
   --radius: 0.5rem;
-
-  --green-primary: #22C55E;
-  --green-dark: #15803D;
-  --green-glow: #4ADE80;
-  --amber: #F59E0B;
-  --danger: #EF4444;
+  --green-primary: #22c55e;
+  --green-dark: #15803d;
+  --green-glow: #4ade80;
+  --amber: #f59e0b;
+  --danger: #ef4444;
 }
 
-.dark {
-  --background: #0A0A0A;
-  --foreground: #F9FAFB;
+/* ─── Dark Mode ────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #f9fafb;
   --card: #111111;
-  --card-foreground: #F9FAFB;
+  --card-foreground: #f9fafb;
   --popover: #111111;
-  --popover-foreground: #F9FAFB;
-  --primary: #22C55E;
-  --primary-foreground: #0A0A0A;
-  --secondary: #1A1A1A;
-  --secondary-foreground: #F9FAFB;
-  --muted: #1A1A1A;
-  --muted-foreground: #6B7280;
-  --accent: #15803D;
-  --accent-foreground: #F9FAFB;
-  --destructive: #EF4444;
-  --destructive-foreground: #F9FAFB;
-  --border: #1F1F1F;
-  --input: #1A1A1A;
-  --ring: #22C55E;
+  --popover-foreground: #f9fafb;
+  --primary: #22c55e;
+  --primary-foreground: #0a0a0a;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #f9fafb;
+  --muted: #1a1a1a;
+  --muted-foreground: #6b7280;
+  --accent: #15803d;
+  --accent-foreground: #f9fafb;
+  --destructive: #ef4444;
+  --destructive-foreground: #f9fafb;
+  --border: #1f1f1f;
+  --input: #1a1a1a;
+  --ring: #22c55e;
+  --green-primary: #22c55e;
+  --green-dark: #15803d;
+  --green-glow: #4ade80;
+  --amber: #f59e0b;
+  --danger: #ef4444;
+}
+
+/* ─── Dim Mode (Softer Dark) ───────────────────────────────── */
+[data-theme="dim"] {
+  --background: #151515;
+  --foreground: #e5e5e5;
+  --card: #1c1c1c;
+  --card-foreground: #e5e5e5;
+  --popover: #1c1c1c;
+  --popover-foreground: #e5e5e5;
+  --primary: #4ade80;
+  --primary-foreground: #0a0a0a;
+  --secondary: #262626;
+  --secondary-foreground: #e5e5e5;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --accent: #166534;
+  --accent-foreground: #e5e5e5;
+  --destructive: #f87171;
+  --destructive-foreground: #0a0a0a;
+  --border: #2a2a2a;
+  --input: #262626;
+  --ring: #4ade80;
+  --green-primary: #4ade80;
+  --green-dark: #166534;
+  --green-glow: #86efac;
+  --amber: #f59e0b;
+  --danger: #f87171;
+}
+
+/* Default to dark if no theme specified (for SSR) */
+:root {
+  --background: #0a0a0a;
+  --foreground: #f9fafb;
+  --card: #111111;
+  --card-foreground: #f9fafb;
+  --popover: #111111;
+  --popover-foreground: #f9fafb;
+  --primary: #22c55e;
+  --primary-foreground: #0a0a0a;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #f9fafb;
+  --muted: #1a1a1a;
+  --muted-foreground: #6b7280;
+  --accent: #15803d;
+  --accent-foreground: #f9fafb;
+  --destructive: #ef4444;
+  --destructive-foreground: #f9fafb;
+  --border: #1f1f1f;
+  --input: #1a1a1a;
+  --ring: #22c55e;
+  --radius: 0.5rem;
+  --green-primary: #22c55e;
+  --green-dark: #15803d;
+  --green-glow: #4ade80;
+  --amber: #f59e0b;
+  --danger: #ef4444;
+}
+
+/* ─── Accent Colors ────────────────────────────────────────── */
+/* Applied on top of any theme via data-accent attribute */
+[data-accent="blue"] {
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --ring: #3b82f6;
+  --green-primary: #3b82f6;
+  --green-dark: #1d4ed8;
+  --green-glow: #60a5fa;
+}
+
+[data-accent="purple"] {
+  --primary: #a855f7;
+  --primary-foreground: #ffffff;
+  --ring: #a855f7;
+  --green-primary: #a855f7;
+  --green-dark: #7e22ce;
+  --green-glow: #c084fc;
+}
+
+[data-accent="cyan"] {
+  --primary: #06b6d4;
+  --primary-foreground: #ffffff;
+  --ring: #06b6d4;
+  --green-primary: #06b6d4;
+  --green-dark: #0e7490;
+  --green-glow: #22d3ee;
+}
+
+[data-accent="orange"] {
+  --primary: #f97316;
+  --primary-foreground: #ffffff;
+  --ring: #f97316;
+  --green-primary: #f97316;
+  --green-dark: #c2410c;
+  --green-glow: #fb923c;
+}
+
+[data-accent="red"] {
+  --primary: #ef4444;
+  --primary-foreground: #ffffff;
+  --ring: #ef4444;
+  --green-primary: #ef4444;
+  --green-dark: #b91c1c;
+  --green-glow: #f87171;
 }
 
 @theme inline {
@@ -81,12 +194,49 @@
   --radius-xl: calc(var(--radius) + 6px);
 }
 
+@layer components {
+  /* Tap target minimum size (WCAG accessibility) */
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.5rem 1rem;
+  }
+
+  /* Safe area for bottom nav on devices with home indicator */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Page padding - mobile first */
+  .page-padding {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .page-padding {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .page-padding {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+  }
+  html {
+    @apply scroll-smooth;
   }
 }
 

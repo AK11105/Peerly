@@ -91,15 +91,24 @@ export function AddNodePanel({ weaveId, onRefresh }: AddNodePanelProps) {
         />
       )}
 
-      <div className="relative z-50">
+      <div className="relative z-40">
+        
+<div className="flex flex-col items-center gap-1">
+  <span className="text-[9px] font-medium text-muted-foreground tracking-wide uppercase mb-2">
+    Node
+  </span>
+
+</div>
+
         <button
           onClick={() => setIsExpanded(true)}
-          className={`flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-300 hover:scale-105 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${
+          className={`flex h-11 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-300 hover:scale-115 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${
             isExpanded ? 'pointer-events-none opacity-0' : 'opacity-100'
           }`}
           aria-label="Add node"
         >
           <Plus className="h-5 w-5" strokeWidth={2.5} />
+          
         </button>
 
         <div

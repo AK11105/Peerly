@@ -29,6 +29,6 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: 'insufficient_lumens' }, { status: 400 })
 
   // Generate code server-side
-  const code = `PEERLY-${reward.partner}-${randomBytes(3).toString('hex').toUpperCase()}`
+  const code = `LOOM-${reward.partner}-${randomBytes(3).toString('hex').toUpperCase()}`
   return NextResponse.json({ code })
 }

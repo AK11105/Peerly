@@ -144,7 +144,7 @@ useEffect(() => {
         </div>
 
         {/* Center: weave content */}
-        <main className="flex-1 min-w-0 overflow-y-auto px-3 md:px-6 py-4 md:py-8 relative">
+        <main className="flex-1 min-w-0 overflow-y-auto px-3 pb-20 md:px-6 md:pb-8 py-4 md:py-8 relative">
 
           <WeaveViewer weave={weave} onUnlock={handleUnlock} onRefresh={loadWeave}/>
 
@@ -174,13 +174,14 @@ useEffect(() => {
             />
           </button>
 
+          {/* Mobile community FAB - positioned above bottom nav */}
           <button
-  onClick={() => setShowMobileCommunity(v => !v)}
-  className="md:hidden fixed bottom-6 right-4 z-30 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-full shadow-lg text-sm font-medium"
->
-  <MessageSquare className="h-4 w-4" />
-  Community
-</button>
+            onClick={() => setShowMobileCommunity(v => !v)}
+            className="md:hidden fixed bottom-20 right-4 z-30 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-full shadow-lg text-sm font-medium hover:brightness-110 transition-all"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Community
+          </button>
         </main>
 
         {/* Right: resizable community sidebar */}

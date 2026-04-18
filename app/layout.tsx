@@ -5,6 +5,8 @@ import { Toaster } from 'sonner'
 import { ClerkProvider } from '@clerk/nextjs'
 import { LumensProvider } from '@/lib/lumens-context'
 import { CurrentUserProvider } from '@/hooks/use-current-user'
+import { ThemeProvider } from '@/components/theme-provider'
+import { BottomNav } from '@/components/peerly/bottom-nav'
 import './globals.css'
 import { dark, shadcn } from '@clerk/ui/themes'
 
@@ -15,7 +17,7 @@ const lexend = Lexend({
 })
 
 export const metadata: Metadata = {
-  title: 'Peerly - From chaos to clarity',
+  title: 'Loom - From chaos to clarity',
   description: 'Build and explore collaborative knowledge weaves with AI-powered scaffolding.',
   generator: 'v0.app',
 }
@@ -32,20 +34,23 @@ export default function RootLayout({
         formButtonPrimary: 'bg-primary text-primary-foreground hover:bg-primary/90 h-11',
       },
     }}>
-      <html lang="en" className="dark">
+      <html lang="en" suppressHydrationWarning>
         <body className={`${lexend.variable} font-sans antialiased`}>
-          <LumensProvider>
-            <CurrentUserProvider>
-            {children}
-          </CurrentUserProvider>
-          </LumensProvider>
+          <ThemeProvider defaultTheme="system" defaultAccent="green">
+            <LumensProvider>
+              <CurrentUserProvider>
+                {children}
+                <BottomNav />
+              </CurrentUserProvider>
+            </LumensProvider>
+          </ThemeProvider>
           <Toaster
             position="bottom-right"
             toastOptions={{
               style: {
-                background: '#111111',
-                border: '1px solid #1F1F1F',
-                color: '#F9FAFB',
+                background: 'var(--card)',
+                border: '1px solid var(--border)',
+                color: 'var(--card-foreground)',
               },
             }}
           />
