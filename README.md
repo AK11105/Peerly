@@ -77,7 +77,6 @@ Topic Input ──► AI Scaffold ──► Community Contributions ──► Ve
 - Every weave has one or more admins (set at creation)
 - New node contributions go to `PENDING_ADMIN` → admin can **Approve**, **Reject**, or **Send to Community Vote**
 - Community voting: 10-vote threshold, 60% majority required for approval
-- Node flagging (spam/abuse), node deletion with automatic AI restructuring
 
 ### 💬 Community Hub
 - Per-weave Discord-style sidebar with channels: `general`, `suggestions`, `deep-dives`, `help`, `theory`, `resources`
