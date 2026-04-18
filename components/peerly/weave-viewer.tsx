@@ -26,36 +26,17 @@ interface WeaveViewerProps {
 
 export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
   const [view, setView] = useState<'list' | 'map'>('list')
-
-  // Drawer
   const [selectedNode, setSelectedNode] = useState<WeaveNode | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-
-  // Scaffold contribute modal (replace AI draft)
   const [scaffoldNode, setScaffoldNode] = useState<WeaveNode | null>(null)
   const [scaffoldModalOpen, setScaffoldModalOpen] = useState(false)
-
-  // Community perspective modal (add to existing node)
   const [communityNode, setCommunityNode] = useState<WeaveNode | null>(null)
   const [perspectiveModalOpen, setPerspectiveModalOpen] = useState(false)
-
-  // Export modal
   const [exportOpen, setExportOpen] = useState(false)
 
-  const handleViewDetail = (node: WeaveNode) => {
-    setSelectedNode(node)
-    setDrawerOpen(true)
-  }
-
-  const handleUnlock = (node: WeaveNode) => {
-    setScaffoldNode(node)
-    setScaffoldModalOpen(true)
-  }
-
-  const handleCommunityContribute = (node: WeaveNode) => {
-    setCommunityNode(node)
-    setPerspectiveModalOpen(true)
-  }
+  const handleViewDetail = (node: WeaveNode) => { setSelectedNode(node); setDrawerOpen(true) }
+  const handleUnlock = (node: WeaveNode) => { setScaffoldNode(node); setScaffoldModalOpen(true) }
+  const handleCommunityContribute = (node: WeaveNode) => { setCommunityNode(node); setPerspectiveModalOpen(true) }
 
   const nodesByDepth = useMemo(() => {
     const groups: Record<number, WeaveNode[]> = {}
@@ -73,10 +54,8 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
 
   return (
     <main className="min-w-0 flex-1">
-      {/* Progress bar */}
       <CommunityProgressBar nodes={weave.nodes} />
 
-      {/* Topic header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-balance text-xl font-semibold text-foreground">{weave.topic}</h1>
@@ -91,7 +70,6 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
           )}
         </div>
 
-        {/* Controls: export + view toggle */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {/* Export button */}
           <button
@@ -103,26 +81,18 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
             <span className="hidden sm:inline">Export</span>
           </button>
 
-          {/* View toggle pill */}
+          {/* View toggle */}
           <div className="flex items-center rounded-full border border-border bg-card p-0.5">
             <button
               onClick={() => setView('list')}
-              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
-                view === 'list'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <List className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">List</span>
             </button>
             <button
               onClick={() => setView('map')}
-              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
-                view === 'map'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${view === 'map' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Network className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Mind Map</span>
@@ -131,7 +101,6 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
         </div>
       </div>
 
-      {/* List view */}
       {view === 'list' && (
         <div className="flex flex-col gap-10">
           {depths.map((depth) => (
@@ -157,10 +126,8 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
         </div>
       )}
 
-      {/* Mind map view */}
       {view === 'map' && <MindMapView weaveNodes={weave.nodes} onViewDetail={handleViewDetail} />}
 
-      {/* Node detail drawer */}
       <NodeDetailDrawer
         node={selectedNode}
         weaveId={weave.id}
@@ -170,8 +137,6 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
         onUnlock={handleUnlock}
         onContribute={handleCommunityContribute}
       />
-
-      {/* Scaffold contribute modal — replaces AI draft */}
       <ContributeModal
         node={scaffoldNode}
         weaveId={weave.id}
@@ -179,8 +144,6 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
         onOpenChange={setScaffoldModalOpen}
         onRefresh={onRefresh}
       />
-
-      {/* Perspective modal — appends to community node */}
       <AddPerspectiveModal
         node={communityNode}
         weaveId={weave.id}
@@ -188,8 +151,6 @@ export function WeaveViewer({ weave, onUnlock, onRefresh }: WeaveViewerProps) {
         onOpenChange={setPerspectiveModalOpen}
         onRefresh={onRefresh}
       />
-
-      {/* Export modal */}
       <ExportModal
         weave={weave}
         open={exportOpen}
