@@ -167,10 +167,11 @@ export default function FieldPage() {
               return (
                 <Link
                     href={`/weave/${weave.id}`}
+                    key={weave.id}
                     className="block group focus:outline-none"
                     >
                 {/* <Card key={weave.id} className="p-5 bg-card border-border hover:border-primary/50 transition-all group"> */}
-                <Card key={weave.id} className="p-7 bg-card border-border 
+                <Card  className="p-7 bg-card border-border 
                         transition-all duration-200
 
                         hover:border-primary/50
