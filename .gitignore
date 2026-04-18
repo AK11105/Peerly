@@ -66,6 +66,11 @@ next-env.d.ts
 
 .env.local
 
-.claude/skills/
+.claude/
+
+Markdown_files/
 
 components/peerly/YC_appln.txt
+
+styles/CLAUDE.md
+
